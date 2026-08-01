@@ -1310,6 +1310,39 @@ export type Database = {
           total_count: number;
         }[];
       };
+      admin_list_listings: {
+        Args: {
+          p_q?: string | null;
+          p_status?: string | null;
+          p_category_id?: string | null;
+          p_package_id?: string | null;
+          p_esa?: string | null;
+          p_featured?: boolean | null;
+          p_city?: string | null;
+          p_from?: string | null;
+          p_to?: string | null;
+          p_sort?: string;
+          p_dir?: string;
+          p_limit?: number;
+          p_offset?: number;
+        };
+        Returns: {
+          id: string;
+          slug: string | null;
+          business_name: string;
+          owner_email: string | null;
+          category_name: string | null;
+          package_name: string | null;
+          status: Database["public"]["Enums"]["listing_status"];
+          is_featured: boolean;
+          completeness: number;
+          city: string | null;
+          submitted_at: string | null;
+          created_at: string;
+          cover_path: string | null;
+          total_count: number;
+        }[];
+      };
       increment_listing_view: {
         Args: { p_listing_id: string };
         Returns: undefined;

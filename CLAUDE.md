@@ -109,8 +109,47 @@ Never read `.env.local` or `keys.txt`.
 - Phases complete: **1 — Scaffold**, **2 — Supabase wiring & route protection**,
   **3 — Authentication**, **4 — Directory page**, **5 — Listing page**,
   **6 — Listing form**, **7 — Accounts & email**, **8 — Stripe**,
-  **9 — Owner dashboard**, **10 — Admin shell & users**
-- Next phase: **11** (per `docs/04-CLAUDE-PROMPTS.md`)
+  **9 — Owner dashboard**, **10 — Admin shell & users**,
+  **11 — Admin listings & moderation**
+- Next phase: **12** (per `docs/04-CLAUDE-PROMPTS.md`)
+- Phase 11 notes:
+  - `/admin/listings`: server-side table via **`admin_list_listings`** RPC
+    (EXECUTE → service_role only) — cover thumb, name, owner email, category,
+    package, status, submitted, completeness; filters (status/category/package/
+    ESA/featured/city/date range) + search (name+owner email+city); sortable;
+    bulk **approve / unpublish / delete** (typed `DELETE`). Status filter value
+    `deleted` lists soft-deleted rows for restore.
+  - `/admin/listings/review`: the moderation queue — one `pending_review` at a
+    time (oldest first), rendered by the **shared `ListingView`** (extracted from
+    the public page so it looks exactly like production; `preview` swaps the live
+    contact/claim/report for static). Sticky bar: **Approve · Request changes ·
+    Reject · Skip** with keyboard **A / R / S**, a running count, and it advances
+    to the next item. Reject & request-changes require a reason (emailed). Skip is
+    URL-driven (`?skip=id,id`), so skipped items return next visit.
+  - `/admin/listings/[id]`: full editor — content fields, **status, package,
+    featured + featured_until, priority_rank, owner reassignment**, and image
+    manage (remove / set cover / add via admin-signed upload URLs). A **History**
+    panel shows the listing's audit trail.
+  - **Moderation actions** (`lib/admin/listing-actions.ts`, all requireAdmin +
+    Zod + `logAudit` + `revalidatePath("/")`): approve → published + published_at
+    + reviewed_at/by + `listing_approved` email; reject → rejected + reason +
+    `listing_rejected` email; request changes → **draft** + reason +
+    `listing_changes_requested` email (edit link); unpublish (internal note in
+    audit); feature/unfeature (end-of-day expiry); soft delete / restore (restores
+    to *unpublished*, never straight public); reassign owner (by email, must have
+    an account). Email link targets use `NEXT_PUBLIC_SITE_URL` (the public site),
+    not the admin origin.
+  - New moderation email **fallbacks** added (`listing_approved`,
+    `listing_rejected`, `listing_changes_requested`) so these send even before the
+    DB templates exist; if you add matching `email_templates` rows under those
+    keys, the DB versions win (Phase 16 editor).
+  - `mapListingDetail(client, row)` was extracted from `getListingBySlug` so the
+    admin service-role loader and the public RLS loader produce the identical
+    `ListingDetail`.
+
+### Phase 11 manual setup required
+1. Apply `20260803100000_admin_list_listings.sql` (the listings RPC; EXECUTE →
+   service_role). Until applied, `/admin/listings` is empty.
 - Phase 10 notes:
   - Admin app under `app/(admin)/admin`. The `(admin)/layout.tsx` is now async
     and calls **`requireAdmin()`** (403s non-admins, 403s suspended) — but a

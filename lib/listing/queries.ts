@@ -1,7 +1,8 @@
 import "server-only";
 import { cache } from "react";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
-import type { EsaAnswer, ListingStatus } from "@/types";
+import type { Database, EsaAnswer, ListingStatus } from "@/types";
 import type {
   ListingDetail,
   ListingImage,
@@ -41,6 +42,19 @@ export const getListingBySlug = cache(async (
     .maybeSingle();
   if (!l || l.deleted_at) return null;
 
+  return mapListingDetail(supabase, l);
+});
+
+/**
+ * Build the full ListingDetail from a listings row. Shared by the public
+ * (RLS-gated) loader and the admin (service-role) loader so both render the
+ * exact same shape.
+ */
+export async function mapListingDetail(
+  supabase: SupabaseClient<Database>,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  l: any,
+): Promise<ListingDetail> {
   const publicUrl = (path: string | null | undefined) =>
     path ? supabase.storage.from(IMAGE_BUCKET).getPublicUrl(path).data.publicUrl : "";
 
@@ -119,7 +133,7 @@ export const getListingBySlug = cache(async (
 
   return {
     id: l.id,
-    slug: l.slug ?? slug,
+    slug: l.slug ?? "",
     status: (l.status as ListingStatus) ?? "draft",
     businessName: l.business_name,
     categoryId: l.category_id,
@@ -149,4 +163,4 @@ export const getListingBySlug = cache(async (
     subjectGroup,
     otherGroups,
   };
-});
+}

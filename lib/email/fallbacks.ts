@@ -40,6 +40,27 @@ export const FALLBACK_TEMPLATES: Record<string, TemplateShape> = {
     cta_label: "See all enquiries",
     cta_path: "/dashboard",
   },
+  listing_approved: {
+    subject: "{{listing_name}} is now live",
+    heading: "You're approved, {{owner_name}}",
+    body: "Good news — {{listing_name}} has been reviewed and is now published in the {{site_name}} directory. Families can find it in search right away.",
+    cta_label: "View your live listing",
+    cta_path: "{{listing_path}}",
+  },
+  listing_rejected: {
+    subject: "About your {{site_name}} listing",
+    heading: "We couldn't approve {{listing_name}} yet",
+    body: "Thanks for submitting {{listing_name}}. We weren't able to publish it as-is. Here's why:\n\n{{reason}}\n\nYou're welcome to make changes and resubmit — just reply to this email if you have any questions.",
+    cta_label: "Edit your listing",
+    cta_path: "{{edit_link}}",
+  },
+  listing_changes_requested: {
+    subject: "A few changes needed for {{listing_name}}",
+    heading: "Almost there, {{owner_name}}",
+    body: "We reviewed {{listing_name}} and need a couple of changes before it can go live:\n\n{{reason}}\n\nUpdate your listing and it'll come back to us for a quick re-review.",
+    cta_label: "Make the changes",
+    cta_path: "{{edit_link}}",
+  },
 };
 
 /** Last-resort generic when a key has no DB row and no fallback. */
