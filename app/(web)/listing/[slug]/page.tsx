@@ -1,9 +1,16 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { headers } from "next/headers";
 import DOMPurify from "isomorphic-dompurify";
-import { Clock, ExternalLink, MapPin, Phone, Star } from "lucide-react";
+import {
+  BadgeCheck,
+  Clock,
+  ExternalLink,
+  Flag,
+  MapPin,
+  Phone,
+  Star,
+} from "lucide-react";
 import {
   FacebookIcon,
   InstagramIcon,
@@ -17,9 +24,8 @@ import { SectionCard } from "@/components/layout/section-card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ListingGallery } from "@/components/listing/listing-gallery";
-import { ContactForm } from "@/components/listing/contact-form";
+import { MessageDialog } from "@/components/listing/message-dialog";
 import { ShareRow } from "@/components/listing/share-row";
-import { MessageButton } from "@/components/listing/message-button";
 import { ListingMap } from "@/components/listing/listing-map";
 import { ViewTracker } from "@/components/listing/view-tracker";
 
@@ -272,24 +278,17 @@ export default async function ListingPage({ params }: Params) {
             </SectionCard>
           ) : null}
 
-          <div id="contact-form" className="scroll-mt-6">
-            <SectionCard
-              title={`Contact ${listing.businessName}`}
-              description="Send a message and they'll reply straight to your email."
-            >
-              <ContactForm
-                listingId={listing.id}
-                businessName={listing.businessName}
-              />
-            </SectionCard>
-          </div>
         </div>
 
         {/* SIDEBAR */}
         <aside className="min-[900px]:sticky min-[900px]:top-6 min-[900px]:h-fit min-[900px]:space-y-6 space-y-6">
           <SectionCard>
             <div className="flex flex-col gap-2.5">
-              <MessageButton className="w-full" />
+              <MessageDialog
+                listingId={listing.id}
+                businessName={listing.businessName}
+                className="w-full"
+              />
               {listing.website ? (
                 <Button asChild variant="outline" className="w-full">
                   <a
@@ -356,19 +355,23 @@ export default async function ListingPage({ params }: Params) {
             <ShareRow url={shareUrl} title={listing.businessName} />
           </SectionCard>
 
-          <div className="flex flex-col gap-1 px-1 text-sm">
-            <Link
-              href={`mailto:${supportEmail}?subject=${encodeURIComponent(`Claim listing: ${listing.businessName}`)}`}
-              className="text-muted-foreground hover:text-ink"
-            >
-              Claim this listing
-            </Link>
-            <Link
-              href={`mailto:${supportEmail}?subject=${encodeURIComponent(`Report a problem: ${listing.businessName}`)}`}
-              className="text-muted-foreground hover:text-ink"
-            >
-              Report a problem
-            </Link>
+          <div className="flex gap-2">
+            <Button asChild variant="outline" size="sm" className="flex-1">
+              <a
+                href={`mailto:${supportEmail}?subject=${encodeURIComponent(`Claim listing: ${listing.businessName}`)}`}
+              >
+                <BadgeCheck className="h-4 w-4" />
+                Claim
+              </a>
+            </Button>
+            <Button asChild variant="outline" size="sm" className="flex-1">
+              <a
+                href={`mailto:${supportEmail}?subject=${encodeURIComponent(`Report a problem: ${listing.businessName}`)}`}
+              >
+                <Flag className="h-4 w-4" />
+                Report
+              </a>
+            </Button>
           </div>
         </aside>
       </div>
