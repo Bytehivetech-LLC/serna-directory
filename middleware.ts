@@ -131,6 +131,7 @@ export const config = {
   // Run on everything except Next internals and static assets, so the session
   // refresh and headers apply to every real navigation and API call.
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js|map|woff2?)$).*)",
+    // Exempt the Stripe webhook (raw-body signature verify, no session).
+    "/((?!api/webhooks|_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js|map|woff2?)$).*)",
   ],
 };

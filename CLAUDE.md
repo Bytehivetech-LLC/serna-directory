@@ -108,8 +108,32 @@ Never read `.env.local` or `keys.txt`.
 
 - Phases complete: **1 — Scaffold**, **2 — Supabase wiring & route protection**,
   **3 — Authentication**, **4 — Directory page**, **5 — Listing page**,
-  **6 — Listing form**, **7 — Accounts & email**
-- Next phase: **8** (per `docs/04-CLAUDE-PROMPTS.md`)
+  **6 — Listing form**, **7 — Accounts & email**, **8 — Stripe**
+- Next phase: **9** (per `docs/04-CLAUDE-PROMPTS.md`)
+- Phase 8 notes:
+  - `lib/stripe/client.ts` pins `apiVersion 2026-07-29.dahlia` (matches SDK v22).
+    `createCheckoutSession(listingId, packageId)` + `createPortalSession()` in
+    `lib/stripe/actions.ts`. Webhook at `/api/webhooks/stripe` (exempt from
+    middleware via matcher): raw-body signature verify → 400 on failure (no body
+    logged) → **insert stripe_events FIRST (idempotency; dup → 200)** → handle
+    checkout.session.completed / subscription.updated|deleted / invoice.paid|
+    payment_failed / charge.refunded → 200, or 500 to force a retry.
+  - **The webhook is the ONLY writer of paid state.** The checkout=success page
+    (`/dashboard/listings/[id]`) polls `is_featured` every 2s ≤30s, then a
+    "we'll email you" fallback — read-only.
+  - `/dashboard/billing` (plan + renewal + payment history + portal). `/dashboard`
+    now lists the owner's listings → `/dashboard/listings/[id]` (upgrade path).
+  - **Deviation:** packages had no `stripe_price_id`, so `ensurePackagePrice`
+    lazily creates the Stripe product/price (test mode) on first checkout and
+    persists it — `stripe_price_id` stays the source of truth.
+  - Subscription period end reads from `sub.items.data[0].current_period_end`
+    (moved off the top level in the dahlia API version).
+
+### Phase 8 manual setup / test
+1. Set `STRIPE_SECRET_KEY` + `STRIPE_WEBHOOK_SECRET`. Run
+   `stripe listen --forward-to localhost:3000/api/webhooks/stripe`.
+2. Buy Featured with `4242…`; re-run the event (must be ignored); test a
+   declined card; cancel in the portal → listing downgrades.
 - Phase 7 notes:
   - Submit flow branches: signed in → theirs; **existing email (not signed in)**
     → listing saved as `draft`, redirect to `/login?next=/list-a-program/finish
