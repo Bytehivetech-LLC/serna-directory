@@ -3,9 +3,32 @@ import { Search, Sparkles } from "lucide-react";
 import { PageContainer } from "@/components/layout/page-container";
 import { PageHeading } from "@/components/layout/page-heading";
 import { EmptyState } from "@/components/layout/empty-state";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { createClient } from "@/lib/supabase/server";
 
-export default function HomePage() {
+/**
+ * Count active categories straight from the database. Used to prove the
+ * Supabase wiring end-to-end (Phase 2 verification). Falls back to null on any
+ * error so the page never 500s over a directory count.
+ */
+async function getCategoryCount(): Promise<number | null> {
+  try {
+    const supabase = await createClient();
+    const { count, error } = await supabase
+      .from("categories")
+      .select("id", { count: "exact", head: true })
+      .eq("is_active", true);
+    if (error) return null;
+    return count ?? 0;
+  } catch {
+    return null;
+  }
+}
+
+export default async function HomePage() {
+  const categoryCount = await getCategoryCount();
+
   return (
     <PageContainer className="py-14">
       <PageHeading
@@ -23,6 +46,15 @@ export default function HomePage() {
           </Button>
         }
       />
+
+      {categoryCount !== null ? (
+        <div className="mt-6">
+          <Badge variant="secondary" className="text-sm">
+            {categoryCount} categor{categoryCount === 1 ? "y" : "ies"} in the
+            directory
+          </Badge>
+        </div>
+      ) : null}
 
       <div className="mt-10">
         <EmptyState
