@@ -21,6 +21,7 @@ function isAdminSurfaceAllowed(pathname: string): boolean {
     isAdminPath(pathname) ||
     pathname === "/login" ||
     pathname.startsWith("/login/") ||
+    pathname.startsWith("/auth/") || // email confirmation / password reset callback
     pathname.startsWith("/api/")
   );
 }

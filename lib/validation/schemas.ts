@@ -199,3 +199,73 @@ export type CategoryUpsertInput = z.infer<typeof categoryUpsertSchema>;
 export type TagGroupUpsertInput = z.infer<typeof tagGroupUpsertSchema>;
 export type TagUpsertInput = z.infer<typeof tagUpsertSchema>;
 export type PackageUpsertInput = z.infer<typeof packageUpsertSchema>;
+
+/* ------------------------------------------------------------------ auth -- */
+
+const email = z.string().trim().toLowerCase().email("Enter a valid email.").max(200);
+
+/** New-password rules. 72 is bcrypt's byte ceiling. */
+const newPassword = z
+  .string()
+  .min(8, "Use at least 8 characters.")
+  .max(72, "Passwords can be at most 72 characters.");
+
+/** Coerce an HTML checkbox ("on"/absent) to a boolean. */
+const checkbox = z.preprocess(
+  (v) => v === "on" || v === "true" || v === true,
+  z.boolean(),
+);
+
+export const loginSchema = z.object({
+  email,
+  password: z.string().min(1, "Enter your password."),
+  next: z.string().optional(),
+});
+
+export const registerSchema = z.object({
+  fullName: z.string().trim().min(1, "Enter your name.").max(120),
+  email,
+  password: newPassword,
+  acceptTerms: checkbox.refine((v) => v === true, {
+    error: "Please accept the terms to continue.",
+  }),
+  recaptchaToken: z.string().optional(),
+  next: z.string().optional(),
+});
+
+export const forgotPasswordSchema = z.object({ email });
+
+export const resetPasswordSchema = z
+  .object({
+    password: newPassword,
+    confirmPassword: z.string(),
+  })
+  .refine((d) => d.password === d.confirmPassword, {
+    path: ["confirmPassword"],
+    error: "Those passwords don't match.",
+  });
+
+export const changePasswordSchema = z
+  .object({
+    newPassword,
+    confirmPassword: z.string(),
+  })
+  .refine((d) => d.newPassword === d.confirmPassword, {
+    path: ["confirmPassword"],
+    error: "Those passwords don't match.",
+  });
+
+export const mfaVerifySchema = z.object({
+  factorId: z.string().min(1),
+  code: z
+    .string()
+    .trim()
+    .regex(/^\d{6}$/, "Enter the 6-digit code from your authenticator app."),
+});
+
+export type LoginInput = z.infer<typeof loginSchema>;
+export type RegisterInput = z.infer<typeof registerSchema>;
+export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
+export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
+export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
+export type MfaVerifyInput = z.infer<typeof mfaVerifySchema>;

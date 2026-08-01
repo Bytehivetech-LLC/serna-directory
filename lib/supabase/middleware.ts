@@ -13,7 +13,15 @@ export async function updateSession(request: NextRequest): Promise<{
   response: NextResponse;
   user: User | null;
 }> {
-  let response = NextResponse.next({ request });
+  // Forward the current path so Server Components (requireUser) can build an
+  // accurate ?next=… without threading the pathname through every layout.
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set(
+    "x-pathname",
+    `${request.nextUrl.pathname}${request.nextUrl.search}`,
+  );
+
+  let response = NextResponse.next({ request: { headers: requestHeaders } });
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -31,7 +39,7 @@ export async function updateSession(request: NextRequest): Promise<{
         cookiesToSet.forEach(({ name, value }) =>
           request.cookies.set(name, value),
         );
-        response = NextResponse.next({ request });
+        response = NextResponse.next({ request: { headers: requestHeaders } });
         cookiesToSet.forEach(({ name, value, options }) =>
           response.cookies.set(name, value, options),
         );

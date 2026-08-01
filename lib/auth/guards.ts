@@ -1,5 +1,6 @@
 import "server-only";
 import { cache } from "react";
+import { headers } from "next/headers";
 import { redirect, forbidden } from "next/navigation";
 import type { Session, User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
@@ -26,12 +27,19 @@ function coerceRole(value: unknown): UserRole | null {
     : null;
 }
 
-/** Read the `user_role` custom claim from a Supabase access token (JWT). */
-function readRoleClaim(session: Session | null): UserRole | null {
-  const payload = decodeJwtPayload(session?.access_token);
+/** Read the `user_role` custom claim from a raw access token (JWT). */
+export function roleFromAccessToken(token?: string | null): UserRole | null {
+  const payload = decodeJwtPayload(token);
   return (
     coerceRole(payload?.["user_role"]) ??
-    coerceRole((payload?.["app_metadata"] as Record<string, unknown>)?.["user_role"]) ??
+    coerceRole((payload?.["app_metadata"] as Record<string, unknown>)?.["user_role"])
+  );
+}
+
+/** Read the `user_role` custom claim from a Supabase session. */
+function readRoleClaim(session: Session | null): UserRole | null {
+  return (
+    roleFromAccessToken(session?.access_token) ??
     coerceRole(session?.user?.app_metadata?.["user_role"])
   );
 }
@@ -82,7 +90,12 @@ export const getProfile = cache(async (): Promise<Profile | null> => {
 export async function requireUser(next?: string): Promise<User> {
   const session = await getSession();
   if (!session?.user) {
-    const suffix = next ? `?next=${encodeURIComponent(next)}` : "";
+    let target = next;
+    if (!target) {
+      const requestHeaders = await headers();
+      target = requestHeaders.get("x-pathname") ?? undefined;
+    }
+    const suffix = target ? `?next=${encodeURIComponent(target)}` : "";
     redirect(`/login${suffix}`);
   }
   return session.user;

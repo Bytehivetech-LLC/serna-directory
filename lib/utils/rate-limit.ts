@@ -11,63 +11,56 @@ export type RateLimitResult = {
 };
 
 /**
- * Fixed-window rate limit backed by the `rate_limits` table
- * (PK: bucket + window_start, counter: hits).
+ * Fixed-window rate limit backed by the `rate_limits` table via the atomic
+ * `public.hit_rate_limit(...)` SECURITY DEFINER RPC (see
+ * supabase/migrations/20260801120000_hit_rate_limit.sql).
  *
- * `bucket` should already include the identifier, e.g. `inquiry:${ip}` or
- * `listing-create:${userId}`. Call from Server Actions / Route Handlers before
+ * `bucket` should already include the identifier, e.g. `login:ip:${ip}` or
+ * `login:email:${email}`. Call from Server Actions / Route Handlers before
  * doing the work.
  *
- * Notes:
- *  - Uses the RLS-bound request client (never the service-role key).
- *  - Read-modify-write, so it can undercount under heavy concurrency; a
- *    SECURITY DEFINER `increment_rate_limit(...)` RPC should back this in
- *    production for atomicity. Adequate for current form-submission volumes.
- *  - Fails OPEN: if the table can't be reached (or RLS blocks the write) a
- *    legitimate request is never blocked; the event is logged instead.
+ * Why the RPC: RLS (correctly) blocks anon writes to rate_limits, but login
+ * limiting must run unauthenticated. The RPC runs as the definer for this one
+ * controlled increment, so the app never needs the service-role key here, and
+ * the increment is atomic (no read-modify-write race).
+ *
+ * Fails OPEN: if the RPC isn't present yet or the DB can't be reached, a
+ * legitimate request is never blocked; the event is logged instead.
  */
 export async function checkRateLimit(
   bucket: string,
   limit: number,
   windowSeconds: number,
 ): Promise<RateLimitResult> {
-  const windowMs = windowSeconds * 1000;
-  const now = Date.now();
-  const windowStartMs = Math.floor(now / windowMs) * windowMs;
-  const windowStart = new Date(windowStartMs).toISOString();
-  const resetAt = new Date(windowStartMs + windowMs);
-
+  const fallbackReset = new Date(Date.now() + windowSeconds * 1000);
   try {
     const supabase = await createClient();
+    const { data, error } = await supabase.rpc("hit_rate_limit", {
+      p_bucket: bucket,
+      p_limit: limit,
+      p_window_seconds: windowSeconds,
+    });
+    if (error) throw error;
 
-    const { data: existing, error: readError } = await supabase
-      .from("rate_limits")
-      .select("hits")
-      .eq("bucket", bucket)
-      .eq("window_start", windowStart)
-      .maybeSingle();
-    if (readError) throw readError;
+    const row = Array.isArray(data) ? data[0] : data;
+    if (!row) throw new Error("hit_rate_limit returned no row");
 
-    const current = existing?.hits ?? 0;
-    if (current >= limit) {
-      return { allowed: false, remaining: 0, limit, resetAt };
-    }
-
-    const next = current + 1;
-    const { error: writeError } = await supabase
-      .from("rate_limits")
-      .upsert(
-        { bucket, window_start: windowStart, hits: next },
-        { onConflict: "bucket,window_start" },
-      );
-    if (writeError) throw writeError;
-
-    return { allowed: true, remaining: Math.max(0, limit - next), limit, resetAt };
+    return {
+      allowed: Boolean(row.allowed),
+      remaining: row.remaining ?? 0,
+      limit,
+      resetAt: row.reset_at ? new Date(row.reset_at) : fallbackReset,
+    };
   } catch (error) {
     console.warn(
       `[rate-limit] "${bucket}" failed open:`,
       error instanceof Error ? error.message : error,
     );
-    return { allowed: true, remaining: limit, limit, resetAt };
+    return { allowed: true, remaining: limit, limit, resetAt: fallbackReset };
   }
+}
+
+/** Minutes (rounded up) until a rate-limit window resets — for user messages. */
+export function minutesUntil(resetAt: Date): number {
+  return Math.max(1, Math.ceil((resetAt.getTime() - Date.now()) / 60000));
 }
