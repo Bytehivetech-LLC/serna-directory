@@ -63,4 +63,10 @@ export type FilterData = {
   groups: FilterTagGroup[];
 };
 
-export type MapSettings = { lat: number; lng: number; zoom: number };
+export type MapSettings = {
+  lat: number;
+  lng: number;
+  zoom: number;
+  /** Browser Maps key from site_settings (falls back to the env var client-side). */
+  apiKey?: string;
+};

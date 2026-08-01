@@ -168,13 +168,21 @@ export async function fetchFilterData(
 }
 
 export async function fetchMapSettings(): Promise<MapSettings> {
-  const settings = await getSettings(["default_map_center"]);
+  const settings = await getSettings([
+    "default_map_center",
+    "google_maps_browser_key",
+  ]);
   const center = settings.default_map_center as
     | { lat?: number; lng?: number; zoom?: number }
     | undefined;
+  const dbKey =
+    typeof settings.google_maps_browser_key === "string"
+      ? settings.google_maps_browser_key.trim()
+      : "";
   return {
     lat: typeof center?.lat === "number" ? center.lat : 33.4255,
     lng: typeof center?.lng === "number" ? center.lng : -111.94,
     zoom: typeof center?.zoom === "number" ? center.zoom : 10,
+    apiKey: dbKey || undefined,
   };
 }

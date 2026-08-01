@@ -31,7 +31,10 @@ export function DirectoryMap({
   hoveredId: string | null;
   onHover: (id: string | null) => void;
 }) {
-  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+  const apiKey =
+    settings.apiKey ||
+    process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY ||
+    process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 
   if (!apiKey) {
     return (
