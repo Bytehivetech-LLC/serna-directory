@@ -106,8 +106,8 @@ Never read `.env.local` or `keys.txt`.
 
 ## Current state
 
-- Phases complete: **1 — Scaffold and design system**
-- Next phase: **2** (per `docs/04-CLAUDE-PROMPTS.md`)
+- Phases complete: **1 — Scaffold**, **2 — Supabase wiring & route protection**
+- Next phase: **3** (per `docs/04-CLAUDE-PROMPTS.md`)
 - Deviations from `docs/04-CLAUDE-PROMPTS.md`:
   - Pinned **Tailwind v3** (not the v4 that `create-next-app` now ships) so the
     theming spec — `tailwind.config.ts` with the `rgb(var(--c-x) / <alpha-value>)`
@@ -116,5 +116,18 @@ Never read `.env.local` or `keys.txt`.
     `sonner`; the app uses the `sonner` Toaster (rewritten to drop the
     `next-themes` dependency, since the site is single-theme).
   - Stack is **Next.js 15.5.22 / React 19**.
+  - `supabase` CLI isn't installed locally, so `types/database.ts` was generated
+    from the project's PostgREST OpenAPI schema (same shape as
+    `supabase gen types`). Regenerate with the CLI once it's linked. Row
+    nullability is derived from NOT NULL; Insert/Update are permissive.
+  - `requireAdmin` returns 403 via Next's `forbidden()`, which needs
+    `experimental.authInterrupts` (enabled in `next.config.ts`).
+  - `checkRateLimit` uses read-modify-write via the RLS-bound client and fails
+    open; a SECURITY DEFINER RPC should back it for atomicity later.
+
+## Deployment
+- GitHub: `Bytehivetech-LLC/serna-directory` (`main`). PRs open per phase.
+- Vercel: not yet connected (deferred). Two projects needed (web/admin) with
+  `APP_TARGET` set per project.
 
 Update this section at the end of every phase.
