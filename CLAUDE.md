@@ -108,8 +108,41 @@ Never read `.env.local` or `keys.txt`.
 
 - Phases complete: **1 — Scaffold**, **2 — Supabase wiring & route protection**,
   **3 — Authentication**, **4 — Directory page**, **5 — Listing page**,
-  **6 — Listing form**, **7 — Accounts & email**, **8 — Stripe**
-- Next phase: **9** (per `docs/04-CLAUDE-PROMPTS.md`)
+  **6 — Listing form**, **7 — Accounts & email**, **8 — Stripe**,
+  **9 — Owner dashboard**
+- Next phase: **10** (per `docs/04-CLAUDE-PROMPTS.md`)
+- Phase 9 notes:
+  - `/dashboard` overview (listing count vs limit, all-time views, inquiries this
+    month, "action needed" cards for rejected listings / past-due payment /
+    incomplete profile), `/dashboard/listings` (status badge, completeness, views,
+    inquiries link, per-row Edit/View/Duplicate/Unpublish/Delete), the listing
+    detail page with a **"Listing health"** card (reuses the strength maths →
+    percent + one concrete suggestion), and `/dashboard/listings/[id]/inquiries`
+    (marked read on open, mailto/call reply).
+  - **Ownership is re-checked server-side on every listing page and action** via
+    `requireOwnedListing(id)` (`lib/dashboard/guards.ts`): validates the UUID,
+    `requireUser()`, then `notFound()` unless `owner_id === user.id` and not
+    soft-deleted. RLS lets anyone read a *published* listing, so this explicit
+    owner check is what makes the Check-it pass (a 2nd user hitting another
+    owner's `/edit` URL gets a 404). Never trust the id in the URL.
+  - **Owner create/edit reuse the same `ListingForm`** (Phase 6), now refactored
+    to take `initial` values, a pluggable `submitFn`, `existingImages` (+ remove),
+    and `redirectOnSuccess`; the anonymous flow is the default (draft autosave +
+    share screen preserved). `/dashboard/listings/new` prefills the owner's
+    contact details and blocks with an upgrade prompt at the plan limit;
+    `/dashboard/listings/[id]/edit` is populated and shows the re-review rule
+    before save.
+  - **Owner actions use the RLS session, NOT the service role**
+    (`lib/list-form/owner-actions.ts`) — an authenticated owner writes their own
+    listings/images/tags under RLS (same as `/api/upload-url` and the Phase-9
+    duplicate/soft-delete actions). Re-review rule: a **published** listing on a
+    **`requires_approval`** package goes back to `pending_review` **only when a
+    material field changed** (business_name, description, category, address);
+    otherwise it stays live. Photo removal deletes the `listing_images` row (the
+    DB queue drains the storage file) and promotes a new cover if needed.
+  - Not verifiable locally without a live session + seeded data: the two-user
+    ownership Check-it, real create/edit writes, and photo upload/remove (storage
+    policies). Verified by `tsc --noEmit` + `npm run build` (both pass).
 - Phase 8 notes:
   - `lib/stripe/client.ts` pins `apiVersion 2026-07-29.dahlia` (matches SDK v22).
     `createCheckoutSession(listingId, packageId)` + `createPortalSession()` in

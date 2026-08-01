@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { X } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { executeRecaptcha } from "@/lib/security/recaptcha-client";
-import { submitListingAction } from "@/lib/list-form/actions";
+import { submitListingAction, type SubmitResult } from "@/lib/list-form/actions";
+import type { ListingSubmitInput } from "@/lib/list-form/submit-schema";
 import {
   computeStrength,
   missingRequired,
@@ -35,28 +37,77 @@ const LABEL_OVERRIDE: Record<string, "agesLabel" | "rateLabel"> = {
   rate_text: "rateLabel",
 };
 
+/** A photo already saved on the listing (edit flow), with a removal handler. */
+export type ExistingImage = { id: string; thumbUrl: string };
+
+export type ListingFormInitial = {
+  categorySlug: string | null;
+  values: FormValues;
+  tagSlugs: string[];
+  packageSlug?: string;
+  showPhone?: boolean;
+  geo?: AddressGeo;
+};
+
 export function ListingForm({
   config,
   mapsKey,
+  initial,
+  submitFn = submitListingAction,
+  existingImages = [],
+  onRemoveExistingImage,
+  redirectOnSuccess,
+  reviewNote,
+  recaptchaAction = "list_program",
+  submitLabel,
 }: {
   config: ListFormConfig;
   mapsKey?: string;
+  /** Seed the form (owner create/edit). Omit for the anonymous new-listing flow. */
+  initial?: ListingFormInitial;
+  /** Server action that persists the listing. Defaults to the anonymous flow. */
+  submitFn?: (input: ListingSubmitInput) => Promise<SubmitResult>;
+  /** Photos already on the listing (edit flow only). */
+  existingImages?: ExistingImage[];
+  /** Removes a saved photo; resolves ok/err. Required to show remove buttons. */
+  onRemoveExistingImage?: (
+    imageId: string,
+  ) => Promise<{ ok: boolean; error?: string }>;
+  /** When set, navigate here on success instead of showing the share screen. */
+  redirectOnSuccess?: (r: { listingId: string; slug: string }) => string;
+  /** Shown just above the submit button (e.g. the re-review rule for edits). */
+  reviewNote?: ReactNode;
+  recaptchaAction?: string;
+  submitLabel?: string;
 }) {
+  // Owner flows seed the form and skip the localStorage draft entirely.
+  const useDraft = !initial;
+
   const defaultPackage =
+    initial?.packageSlug ??
     config.packages.find((p) => p.isDefault)?.slug ??
     config.packages[0]?.slug ??
     "free";
 
-  const [categorySlug, setCategorySlug] = useState<string | null>(null);
-  const [values, setValues] = useState<FormValues>({});
-  const [tagSlugs, setTagSlugs] = useState<Set<string>>(new Set());
+  const [categorySlug, setCategorySlug] = useState<string | null>(
+    initial?.categorySlug ?? null,
+  );
+  const [values, setValues] = useState<FormValues>(initial?.values ?? {});
+  const [tagSlugs, setTagSlugs] = useState<Set<string>>(
+    new Set(initial?.tagSlugs ?? []),
+  );
   const [packageSlug, setPackageSlug] = useState(defaultPackage);
   const [images, setImages] = useState<ProcessedImage[]>([]);
-  const [geo, setGeo] = useState<AddressGeo>({
-    latitude: null,
-    longitude: null,
-    google_place_id: null,
-  });
+  const [existing, setExisting] = useState<ExistingImage[]>(existingImages);
+  const [removingId, setRemovingId] = useState<string | null>(null);
+  const showPhone = initial?.showPhone ?? true;
+  const [geo, setGeo] = useState<AddressGeo>(
+    initial?.geo ?? {
+      latitude: null,
+      longitude: null,
+      google_place_id: null,
+    },
+  );
   const [pending, setPending] = useState(false);
   const [success, setSuccess] = useState<{ url: string; featured: boolean } | null>(
     null,
@@ -65,9 +116,9 @@ export function ListingForm({
 
   const category = config.categories.find((c) => c.slug === categorySlug) ?? null;
 
-  // Restore autosaved draft once.
+  // Restore autosaved draft once (anonymous new-listing flow only).
   useEffect(() => {
-    if (restored.current) return;
+    if (!useDraft || restored.current) return;
     restored.current = true;
     const draft = loadDraft();
     if (draft) {
@@ -77,10 +128,11 @@ export function ListingForm({
       setPackageSlug(draft.packageSlug || defaultPackage);
       if (draft.address) setValues((v) => ({ ...v, ...draft.address }));
     }
-  }, [defaultPackage]);
+  }, [defaultPackage, useDraft]);
 
-  // Autosave (debounced) — text only, never photos.
+  // Autosave (debounced) — text only, never photos. Anonymous flow only.
   useEffect(() => {
+    if (!useDraft) return;
     const snapshot: DraftSnapshot = {
       categorySlug,
       values,
@@ -95,15 +147,28 @@ export function ListingForm({
     };
     const id = setTimeout(() => saveDraft(snapshot), 1500);
     return () => clearTimeout(id);
-  }, [categorySlug, values, tagSlugs, packageSlug]);
+  }, [categorySlug, values, tagSlugs, packageSlug, useDraft]);
+
+  async function removeExisting(imageId: string) {
+    if (!onRemoveExistingImage) return;
+    setRemovingId(imageId);
+    const res = await onRemoveExistingImage(imageId);
+    setRemovingId(null);
+    if (res.ok) {
+      setExisting((prev) => prev.filter((img) => img.id !== imageId));
+    } else {
+      toast.error(res.error ?? "Couldn't remove that photo.");
+    }
+  }
 
   const selectedPackage =
     config.packages.find((p) => p.slug === packageSlug) ?? config.packages[0];
   const maxImages = selectedPackage?.maxImages ?? 8;
+  const totalImages = existing.length + images.length;
 
   const strength = useMemo(
-    () => computeStrength(config, values, images.length),
-    [config, values, images.length],
+    () => computeStrength(config, values, totalImages),
+    [config, values, totalImages],
   );
   const missing = useMemo(
     () => missingRequired(config, values, Boolean(categorySlug)),
@@ -141,7 +206,7 @@ export function ListingForm({
         </>
       );
     }
-    const tip = nextSuggestion(config, values, images.length);
+    const tip = nextSuggestion(config, values, totalImages);
     if (strength.percent >= 100) {
       return (
         <>
@@ -163,8 +228,8 @@ export function ListingForm({
     if (!canPublish || !category) return;
     setPending(true);
     try {
-      const token = await executeRecaptcha("list_program");
-      const result = await submitListingAction({
+      const token = await executeRecaptcha(recaptchaAction);
+      const result = await submitFn({
         categorySlug: category.slug,
         packageSlug,
         core: {
@@ -186,7 +251,7 @@ export function ListingForm({
             | "no"
             | "unsure",
         },
-        showPhone: true,
+        showPhone,
         tagSlugs: [...tagSlugs],
         geo,
         customFields: {},
@@ -202,7 +267,7 @@ export function ListingForm({
 
       // Existing account → sign in and finish (the server saved a draft).
       if (result.mode === "existing") {
-        clearDraft();
+        if (useDraft) clearDraft();
         toast.message(result.message);
         window.location.href = result.redirectTo;
         return;
@@ -229,7 +294,18 @@ export function ListingForm({
         );
       }
 
-      clearDraft();
+      if (useDraft) clearDraft();
+
+      // Owner create/edit → back to the dashboard listing. Anonymous → share screen.
+      if (redirectOnSuccess) {
+        toast.success("Saved.");
+        window.location.href = redirectOnSuccess({
+          listingId: result.listingId,
+          slug: result.slug,
+        });
+        return;
+      }
+
       setSuccess({
         url: `${window.location.origin}/listing/${result.slug}`,
         featured: result.featured,
@@ -311,11 +387,41 @@ export function ListingForm({
                 description={section.subtitle ?? undefined}
               >
                 {section.key === "photos" ? (
-                  <PhotoUploader
-                    images={images}
-                    onChange={setImages}
-                    max={maxImages}
-                  />
+                  <div className="space-y-4">
+                    {existing.length > 0 ? (
+                      <div className="grid grid-cols-3 gap-3 sm:grid-cols-4">
+                        {existing.map((img) => (
+                          <div
+                            key={img.id}
+                            className="group relative aspect-square overflow-hidden rounded-xl border border-border bg-secondary"
+                          >
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={img.thumbUrl}
+                              alt=""
+                              className="h-full w-full object-cover"
+                            />
+                            {onRemoveExistingImage ? (
+                              <button
+                                type="button"
+                                onClick={() => removeExisting(img.id)}
+                                disabled={removingId === img.id}
+                                aria-label="Remove photo"
+                                className="absolute right-1.5 top-1.5 grid h-7 w-7 place-items-center rounded-full bg-black/60 text-white transition-opacity hover:bg-black/80 disabled:opacity-50"
+                              >
+                                <X className="h-4 w-4" />
+                              </button>
+                            ) : null}
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
+                    <PhotoUploader
+                      images={images}
+                      onChange={setImages}
+                      max={Math.max(0, maxImages - existing.length)}
+                    />
+                  </div>
                 ) : section.key === "tags" ? (
                   visibleTagGroups.length ? (
                     <TagAccordions
@@ -360,15 +466,22 @@ export function ListingForm({
               </SectionCard>
             ))}
 
+          {reviewNote ? (
+            <div className="rounded-xl border border-warm-border bg-warm px-5 py-4 text-sm text-[#7a5a1e]">
+              {reviewNote}
+            </div>
+          ) : null}
+
           <StrengthBar
             percent={strength.percent}
             message={strengthMessage}
             canPublish={canPublish}
             pending={pending}
             submitLabel={
-              selectedPackage?.priceCents
+              submitLabel ??
+              (selectedPackage?.priceCents
                 ? "Publish & continue to checkout"
-                : "Publish my listing"
+                : "Publish my listing")
             }
             onPublish={handlePublish}
           />

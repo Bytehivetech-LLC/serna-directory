@@ -2,12 +2,19 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CreditCard, LayoutList, LogOut, UserRound } from "lucide-react";
+import {
+  CreditCard,
+  LayoutDashboard,
+  LayoutList,
+  LogOut,
+  UserRound,
+} from "lucide-react";
 import { signOutAction } from "@/lib/auth/actions";
 import { cn } from "@/lib/utils/cn";
 
 const ITEMS = [
-  { href: "/dashboard", label: "My listings", icon: LayoutList, exact: true },
+  { href: "/dashboard", label: "Overview", icon: LayoutDashboard, exact: true },
+  { href: "/dashboard/listings", label: "Listings", icon: LayoutList },
   { href: "/dashboard/billing", label: "Billing", icon: CreditCard },
   { href: "/dashboard/profile", label: "Profile", icon: UserRound },
 ];
