@@ -978,6 +978,7 @@ export type Database = {
           business_address: string | null;
           notes: string | null;
           last_seen_at: string | null;
+          deleted_at: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -995,6 +996,7 @@ export type Database = {
           business_address?: string | null;
           notes?: string | null;
           last_seen_at?: string | null;
+          deleted_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -1012,6 +1014,7 @@ export type Database = {
           business_address?: string | null;
           notes?: string | null;
           last_seen_at?: string | null;
+          deleted_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -1283,6 +1286,30 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      admin_list_users: {
+        Args: {
+          p_q?: string | null;
+          p_role?: string | null;
+          p_verified?: boolean | null;
+          p_suspended?: boolean | null;
+          p_has_listings?: boolean | null;
+          p_sort?: string;
+          p_dir?: string;
+          p_limit?: number;
+          p_offset?: number;
+        };
+        Returns: {
+          id: string;
+          email: string;
+          full_name: string | null;
+          role: Database["public"]["Enums"]["user_role"];
+          is_verified: boolean;
+          is_suspended: boolean;
+          listing_count: number;
+          created_at: string;
+          total_count: number;
+        }[];
+      };
       increment_listing_view: {
         Args: { p_listing_id: string };
         Returns: undefined;

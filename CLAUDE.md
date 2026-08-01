@@ -109,8 +109,51 @@ Never read `.env.local` or `keys.txt`.
 - Phases complete: **1 — Scaffold**, **2 — Supabase wiring & route protection**,
   **3 — Authentication**, **4 — Directory page**, **5 — Listing page**,
   **6 — Listing form**, **7 — Accounts & email**, **8 — Stripe**,
-  **9 — Owner dashboard**
-- Next phase: **10** (per `docs/04-CLAUDE-PROMPTS.md`)
+  **9 — Owner dashboard**, **10 — Admin shell & users**
+- Next phase: **11** (per `docs/04-CLAUDE-PROMPTS.md`)
+- Phase 10 notes:
+  - Admin app under `app/(admin)/admin`. The `(admin)/layout.tsx` is now async
+    and calls **`requireAdmin()`** (403s non-admins, 403s suspended) — but a
+    layout check is not enough, so **every admin server action calls
+    `requireAdmin()` again**. `middleware.ts` already hard-404s `/admin*` on the
+    web deployment (the Check-it: admin unreachable on the public site).
+  - Shell: dark **indigo-deep** sidebar (`components/admin/admin-sidebar.tsx`,
+    Dashboard/Listings/Users/Packages/Categories & Tags/Form builder/Payments/
+    Settings/Audit log — several are forward links to later phases), top bar with
+    the admin email + sign out, and a violet **ADMIN** badge. `/admin` dashboard:
+    pending-review count (links to `/admin/listings?status=pending_review`),
+    listings-by-status, new users this week, revenue this month, recent audit,
+    and a billing-attention strip (failed payments + past-due subs — there is no
+    dedicated webhook-failure table in the schema, so those are the signal).
+  - **`logAudit()`** (`lib/audit/log.ts`) writes one immutable `audit_log` row —
+    actor id+email (from the session/profile), action (`verb.noun`), entity,
+    a computed before/after **diff**, IP, and user agent — via the service-role
+    client, and never throws into the caller. **Use it from every mutation from
+    here on.**
+  - `/admin/users`: server-side search/filter (role, verified, suspended, has
+    listings)/sort/pagination via the **`admin_list_users`** RPC (EXECUTE granted
+    to `service_role` only; excludes soft-deleted). Bulk verify + bulk suspend.
+    `/admin/users/[id]`: editable profile, their listings/subscriptions/payments/
+    audit trail, and actions — verify, suspend (with reason), change role, send
+    password reset, email the user, soft-delete (typed `DELETE`, **blocked when
+    the user has active paid listings**). **An admin can't suspend, delete, or
+    demote themselves** (enforced in the actions, disabled in the UI).
+  - Admin reads/writes use the **service-role** client — the sanctioned "admin
+    actions that have already verified the caller is an admin" case. Role changes
+    also mirror `user_role` onto the auth user's `app_metadata` so the JWT claim
+    updates promptly. Soft-deleting a user is a new `profiles.deleted_at` stamp
+    (+ suspend); no profile row is ever hard-deleted.
+  - Not verifiable locally (needs an admin session + applied migrations): the
+    users RPC, every mutation, and the audit writes. Verified by `tsc --noEmit`
+    + `npm run build` (both pass).
+
+### Phase 10 manual setup required
+1. Apply the two migrations (SQL editor or `supabase db push`):
+   `20260803085000_profiles_soft_delete.sql` (adds `profiles.deleted_at`) then
+   `20260803090000_admin_list_users.sql` (the users RPC). Until applied, the
+   Users table is empty.
+2. Deploy/run with `APP_TARGET=admin` (admin deployment) and sign in as an admin
+   to reach `/admin`.
 - Phase 9 notes:
   - `/dashboard` overview (listing count vs limit, all-time views, inquiries this
     month, "action needed" cards for rejected listings / past-due payment /
