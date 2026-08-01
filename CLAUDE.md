@@ -107,8 +107,30 @@ Never read `.env.local` or `keys.txt`.
 ## Current state
 
 - Phases complete: **1 — Scaffold**, **2 — Supabase wiring & route protection**,
-  **3 — Authentication**, **4 — Directory page**
-- Next phase: **5** (per `docs/04-CLAUDE-PROMPTS.md`)
+  **3 — Authentication**, **4 — Directory page**, **5 — Listing page**
+- Next phase: **6** (per `docs/04-CLAUDE-PROMPTS.md`)
+- Phase 5 notes:
+  - `/listing/[slug]` uses `getListingBySlug` (RLS-gated: drafts 404 for non-
+    owners/staff, published for all; soft-deleted → 404). Gallery lightbox,
+    sanitised description (DOMPurify), category-labelled Details, subjects chips,
+    single-pin map + Get-directions, contact form, sticky sidebar, share row,
+    JSON-LD LocalBusiness, OG metadata.
+  - **Two new SECURITY DEFINER migrations must be applied** (RLS blocks anon
+    writes): `create_inquiry` (contact form — verified RLS blocks direct anon
+    insert with 42501) and `increment_listing_view` (deduped view counter).
+    Until applied, the contact form can't store/send and views don't count.
+  - Contact email uses SendGrid (`lib/email/*`); no-ops without SENDGRID_API_KEY.
+    Owner address is never rendered; reply-to is the enquirer.
+  - lucide-react dropped brand icons → local `components/listing/brand-icons.tsx`.
+
+### Phase 5 manual setup required
+1. Apply `supabase/migrations/20260802130000_create_inquiry.sql` and
+   `supabase/migrations/20260802120000_increment_listing_view.sql` (SQL editor
+   or `supabase db push`).
+2. Set `SENDGRID_API_KEY` + `SENDGRID_FROM_EMAIL` (verified sender) for the
+   contact form to actually deliver mail.
+3. Map still blocked by the Google key's API restrictions
+   (`ApiTargetBlockedMapError`) — allow "Maps JavaScript API" on the key.
 - Phase 4 notes:
   - Directory lives at `/` (web). `search_listings` returns:
     `id, slug, business_name, city, state, latitude, longitude, category_name,

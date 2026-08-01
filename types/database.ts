@@ -1283,6 +1283,22 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      increment_listing_view: {
+        Args: { p_listing_id: string };
+        Returns: undefined;
+      };
+      create_inquiry: {
+        Args: {
+          p_listing_id: string;
+          p_name: string;
+          p_email: string;
+          p_message: string;
+          p_phone?: string | null;
+          p_ip?: string | null;
+          p_user_agent?: string | null;
+        };
+        Returns: string;
+      };
       hit_rate_limit: {
         Args: {
           p_bucket: string;
