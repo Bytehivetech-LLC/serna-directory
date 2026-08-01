@@ -107,8 +107,23 @@ Never read `.env.local` or `keys.txt`.
 ## Current state
 
 - Phases complete: **1 — Scaffold**, **2 — Supabase wiring & route protection**,
-  **3 — Authentication**
-- Next phase: **4** (per `docs/04-CLAUDE-PROMPTS.md`)
+  **3 — Authentication**, **4 — Directory page**
+- Next phase: **5** (per `docs/04-CLAUDE-PROMPTS.md`)
+- Phase 4 notes:
+  - Directory lives at `/` (web). `search_listings` returns:
+    `id, slug, business_name, city, state, latitude, longitude, category_name,
+    category_slug, cover_path, is_featured, completeness, total_count`. ESA is
+    NOT in the RPC output — looked up separately for the tile badge.
+  - Filters are entirely URL-driven (shareable/crawlable); the Server Component
+    reads searchParams and calls the RPC. Tag groups are data-driven from
+    tag_groups/tags (global + per-selected-category).
+  - Map needs `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` (and ideally
+    `NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID` for AdvancedMarker styling); renders a
+    graceful "Map unavailable" fallback without it. `default_map_center` +
+    `listings_per_page` come from site_settings.
+  - **Test data**: a throwaway user `zz-preview-seed@serna.test` and 3 listings
+    with slug `zz-preview-*` were seeded to verify the page. Remove with the
+    cleanup SQL in the Phase 4 PR before going live.
 - Deviations from `docs/04-CLAUDE-PROMPTS.md`:
   - Pinned **Tailwind v3** (not the v4 that `create-next-app` now ships) so the
     theming spec — `tailwind.config.ts` with the `rgb(var(--c-x) / <alpha-value>)`

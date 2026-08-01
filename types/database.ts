@@ -1295,6 +1295,33 @@ export type Database = {
           reset_at: string;
         }[];
       };
+      search_listings: {
+        Args: {
+          p_query?: string;
+          p_category?: string;
+          p_city?: string;
+          p_tag_slugs?: string[];
+          p_esa?: string;
+          p_bbox?: number[];
+          p_limit?: number;
+          p_offset?: number;
+        };
+        Returns: {
+          id: string;
+          slug: string;
+          business_name: string;
+          city: string | null;
+          state: string | null;
+          latitude: number | null;
+          longitude: number | null;
+          category_name: string | null;
+          category_slug: string | null;
+          cover_path: string | null;
+          is_featured: boolean;
+          completeness: number | null;
+          total_count: number;
+        }[];
+      };
     };
     Enums: {
       billing_interval: "one_time" | "month" | "year";
