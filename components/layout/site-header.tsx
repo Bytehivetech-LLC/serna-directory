@@ -1,8 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { Menu } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import { Menu, Search } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { Button } from "@/components/ui/button";
 import {
@@ -51,6 +52,44 @@ function Brand({ name, href }: { name: string; href: string }) {
   );
 }
 
+/** Global directory search — jumps to /?q=… from any page. */
+function HeaderSearch({
+  className,
+  onSubmitted,
+}: {
+  className?: string;
+  onSubmitted?: () => void;
+}) {
+  const router = useRouter();
+  const [q, setQ] = useState("");
+
+  return (
+    <form
+      role="search"
+      onSubmit={(e) => {
+        e.preventDefault();
+        const query = q.trim();
+        router.push(query ? `/?q=${encodeURIComponent(query)}` : "/");
+        onSubmitted?.();
+      }}
+      className={cn("relative", className)}
+    >
+      <Search
+        className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/60"
+        aria-hidden
+      />
+      <input
+        type="search"
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+        placeholder="Search directory"
+        aria-label="Search directory"
+        className="h-9 w-44 rounded-full border border-white/15 bg-white/10 pl-9 pr-3 text-sm text-white placeholder:text-white/55 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet"
+      />
+    </form>
+  );
+}
+
 export function SiteHeader({
   nav = DEFAULT_NAV,
   activeHref,
@@ -59,35 +98,37 @@ export function SiteHeader({
   homeHref = "/",
 }: SiteHeaderProps) {
   const pathname = usePathname();
+  const [menuOpen, setMenuOpen] = useState(false);
   const current = activeHref ?? pathname ?? "/";
   const isActive = (href: string) =>
     href === "/" ? current === "/" : current === href || current.startsWith(`${href}/`);
 
   return (
     <header className="bg-header-bg text-header-text">
-      <div className="mx-auto flex max-w-[1060px] items-center justify-between gap-4 px-6 py-4">
+      <div className="mx-auto flex max-w-[1120px] items-center gap-4 px-6 py-3.5">
         <Brand name={brandName} href={homeHref} />
 
-        {/* Desktop nav */}
-        <nav className="hidden items-center gap-6 md:flex">
-          {nav.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                "text-xs font-semibold uppercase tracking-[0.08em] no-underline transition-colors",
-                isActive(item.href)
-                  ? "border-b-2 border-violet pb-0.5 text-header-text"
-                  : "text-header-text/70 hover:text-header-text",
-              )}
-            >
-              {item.label}
-            </Link>
-          ))}
-        </nav>
+        {/* Desktop nav + search + actions */}
+        <div className="ml-auto hidden items-center gap-5 md:flex">
+          <nav className="flex items-center gap-6">
+            {nav.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={cn(
+                  "text-xs font-semibold uppercase tracking-[0.08em] no-underline transition-colors",
+                  isActive(item.href)
+                    ? "border-b-2 border-violet pb-0.5 text-header-text"
+                    : "text-header-text/70 hover:text-header-text",
+                )}
+              >
+                {item.label}
+              </Link>
+            ))}
+          </nav>
 
-        {/* Desktop actions */}
-        <div className="hidden items-center gap-2 md:flex">
+          <HeaderSearch />
+
           {authed ? (
             <Button asChild variant="secondary" size="sm">
               <Link href="/dashboard">Dashboard</Link>
@@ -105,8 +146,8 @@ export function SiteHeader({
         </div>
 
         {/* Mobile menu */}
-        <div className="md:hidden">
-          <Sheet>
+        <div className="ml-auto md:hidden">
+          <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
             <SheetTrigger asChild>
               <Button
                 variant="ghost"
@@ -121,7 +162,15 @@ export function SiteHeader({
               <SheetHeader className="text-left">
                 <SheetTitle className="font-display">{brandName}</SheetTitle>
               </SheetHeader>
-              <nav className="mt-6 flex flex-col gap-1">
+
+              <div className="mt-5 rounded-full bg-header-bg p-1">
+                <HeaderSearch
+                  className="[&_input]:w-full"
+                  onSubmitted={() => setMenuOpen(false)}
+                />
+              </div>
+
+              <nav className="mt-4 flex flex-col gap-1">
                 {nav.map((item) => (
                   <SheetClose asChild key={item.href}>
                     <Link
