@@ -1299,6 +1299,19 @@ export type Database = {
         };
         Returns: string;
       };
+      listing_entitlements: {
+        Args: { p_listing_id: string };
+        Returns: {
+          featured: boolean;
+          max_images: number;
+          video_embed: boolean;
+          max_listings: number;
+          homepage_slot: boolean;
+          priority_rank: number;
+          inquiry_alerts: boolean;
+          verified_badge: boolean;
+        };
+      };
       hit_rate_limit: {
         Args: {
           p_bucket: string;

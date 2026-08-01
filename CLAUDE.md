@@ -107,8 +107,28 @@ Never read `.env.local` or `keys.txt`.
 ## Current state
 
 - Phases complete: **1 — Scaffold**, **2 — Supabase wiring & route protection**,
-  **3 — Authentication**, **4 — Directory page**, **5 — Listing page**
-- Next phase: **6** (per `docs/04-CLAUDE-PROMPTS.md`)
+  **3 — Authentication**, **4 — Directory page**, **5 — Listing page**,
+  **6 — Listing form**
+- Next phase: **7** (per `docs/04-CLAUDE-PROMPTS.md`)
+- Phase 6 notes:
+  - `/list-a-program` is fully DB-driven from `form_sections`/`form_fields`
+    (6 sections, 13 core fields → listing columns), category-aware labels from
+    `categories.ages_label/rate_label`, tag accordions from `tag_groups`
+    (show_in_form), strength from `form_fields.strength_points` + photos
+    (max = fields(72) + 3·5 → 100% needs photos), packages from `packages`.
+  - **Flow decision (user-approved): anonymous fill, commit at submit.** Photos
+    are processed in-browser (EXIF strip → WebP full ≤2000px + 400px thumb),
+    previewed/reordered locally; on Publish the submit action provisions the
+    account + listing + tags (service-role — the sanctioned "account provisioning
+    during listing submission"), then the browser uploads photos to Supabase via
+    signed URLs and shows the success screen. Account *flow* (set-password email,
+    Featured checkout) is Phase 7.
+  - `/api/upload-url` = the authenticated edit-flow path (verifies ownership +
+    entitlements before signing). Address: Places autocomplete + manual, geocoded
+    server-side (`GOOGLE_GEOCODING_API_KEY`) when Places didn't supply coords.
+    Add-on picker slot left empty (`data-addon-slot`) for Phase 13.
+  - Not verifiable locally (need live infra): the real submit (creates accounts/
+    listings), photo upload (storage bucket policies), Places (blocked Maps key).
 - Phase 5 notes:
   - `/listing/[slug]` uses `getListingBySlug` (RLS-gated: drafts 404 for non-
     owners/staff, published for all; soft-deleted → 404). Gallery lightbox,
