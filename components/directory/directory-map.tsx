@@ -102,17 +102,20 @@ function ClusteredMarkers({
   const markers = useRef<
     Record<string, google.maps.marker.AdvancedMarkerElement>
   >({});
-  const [, forceRender] = useState(0);
   const [infoId, setInfoId] = useState<string | null>(null);
 
   const pinned = listings.filter((l) => l.lat != null && l.lng != null);
+  // Stable key for the current set of pins — drives re-clustering.
+  const pinKey = pinned.map((l) => l.id).join(",");
 
   useEffect(() => {
     if (!map || clusterer.current) return;
     clusterer.current = new MarkerClusterer({ map });
   }, [map]);
 
-  // Cluster only past the threshold; below it, show individual pins.
+  // Cluster only past the threshold; below it, show individual pins. Runs after
+  // commit (markers.current is populated by the marker refs) whenever the pin
+  // set or map changes — NOT on every render.
   useEffect(() => {
     const c = clusterer.current;
     if (!c) return;
@@ -120,17 +123,16 @@ function ClusteredMarkers({
     if (Object.keys(markers.current).length > CLUSTER_THRESHOLD) {
       c.addMarkers(Object.values(markers.current));
     }
-  });
+  }, [pinKey, map]);
 
+  // Ref callback only mutates the ref map — never sets state (that caused an
+  // infinite render loop when the ref detached/reattached each render).
   const setMarkerRef = (
     marker: google.maps.marker.AdvancedMarkerElement | null,
     id: string,
   ) => {
-    if (marker && markers.current[id]) return;
-    if (!marker && !markers.current[id]) return;
     if (marker) markers.current[id] = marker;
     else delete markers.current[id];
-    forceRender((n) => n + 1);
   };
 
   const info = infoId ? pinned.find((l) => l.id === infoId) : null;
@@ -154,9 +156,9 @@ function ClusteredMarkers({
         </AdvancedMarker>
       ))}
 
-      {info && markers.current[info.id] ? (
+      {info && info.lat != null && info.lng != null ? (
         <InfoWindow
-          anchor={markers.current[info.id]}
+          position={{ lat: info.lat, lng: info.lng }}
           headerDisabled
           onCloseClick={() => setInfoId(null)}
         >
