@@ -11,7 +11,7 @@ import {
 } from "@vis.gl/react-google-maps";
 import { MarkerClusterer } from "@googlemaps/markerclusterer";
 import { MapPinned, Star } from "lucide-react";
-import { useDirectoryNav } from "./use-directory-nav";
+import { useDirectoryFilters } from "./filter-context";
 import type { DirectoryListing, MapSettings } from "@/lib/directory/types";
 import { cn } from "@/lib/utils/cn";
 import { Button } from "@/components/ui/button";
@@ -188,7 +188,7 @@ function ClusteredMarkers({
 /** Shows a "Search this area" button after the user pans/zooms the map. */
 function SearchThisAreaButton() {
   const map = useMap();
-  const { setParams } = useDirectoryNav();
+  const { setParams } = useDirectoryFilters();
   const [moved, setMoved] = useState(false);
 
   useEffect(() => {

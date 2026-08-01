@@ -2,12 +2,12 @@
 
 import { useState } from "react";
 import { Map as MapIcon, Search } from "lucide-react";
+import { useDirectoryFilters } from "./filter-context";
 import { DirectoryFilterBar } from "./directory-filter-bar";
 import { ListingTile } from "./listing-tile";
 import { ActiveFilterChips } from "./active-filter-chips";
 import { DirectoryPagination } from "./directory-pagination";
 import { DirectoryMap } from "./directory-map";
-import { useDirectoryNav } from "./use-directory-nav";
 import { EmptyState } from "@/components/layout/empty-state";
 import { Button } from "@/components/ui/button";
 import {
@@ -17,8 +17,8 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
+import { cn } from "@/lib/utils/cn";
 import type {
-  DirectoryFilters,
   DirectoryListing,
   FilterData,
   MapSettings,
@@ -29,7 +29,6 @@ export function DirectoryView({
   total,
   page,
   pageCount,
-  filters,
   filterData,
   mapSettings,
 }: {
@@ -37,12 +36,11 @@ export function DirectoryView({
   total: number;
   page: number;
   pageCount: number;
-  filters: DirectoryFilters;
   filterData: FilterData;
   mapSettings: MapSettings;
 }) {
+  const { isPending, setParams } = useDirectoryFilters();
   const [hoveredId, setHoveredId] = useState<string | null>(null);
-  const { setParams } = useDirectoryNav();
 
   const clearAll = () =>
     setParams((p) =>
@@ -53,7 +51,7 @@ export function DirectoryView({
 
   return (
     <div className="space-y-5">
-      <DirectoryFilterBar filters={filters} filterData={filterData} />
+      <DirectoryFilterBar filterData={filterData} />
 
       <div className="lg:grid lg:grid-cols-[58fr_42fr] lg:gap-6">
         {/* Left column: results */}
@@ -65,34 +63,43 @@ export function DirectoryView({
             </p>
           </div>
 
-          <ActiveFilterChips filters={filters} filterData={filterData} />
+          <ActiveFilterChips filterData={filterData} />
 
-          {listings.length > 0 ? (
-            <>
-              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                {listings.map((listing) => (
-                  <ListingTile
-                    key={listing.id}
-                    listing={listing}
-                    active={hoveredId === listing.id}
-                    onHover={setHoveredId}
-                  />
-                ))}
+          {/* Results dim slightly while a filter request is in flight. */}
+          <div
+            className={cn(
+              "transition-opacity duration-200",
+              isPending && "pointer-events-none opacity-50",
+            )}
+            aria-busy={isPending}
+          >
+            {listings.length > 0 ? (
+              <div className="space-y-5">
+                <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                  {listings.map((listing) => (
+                    <ListingTile
+                      key={listing.id}
+                      listing={listing}
+                      active={hoveredId === listing.id}
+                      onHover={setHoveredId}
+                    />
+                  ))}
+                </div>
+                <DirectoryPagination page={page} pageCount={pageCount} />
               </div>
-              <DirectoryPagination page={page} pageCount={pageCount} />
-            </>
-          ) : (
-            <EmptyState
-              icon={Search}
-              title="No listings match your filters"
-              description="Try removing a filter or widening your search — fewer tags, a nearby city, or clear everything and start over."
-              action={
-                <Button variant="outline" onClick={clearAll}>
-                  Clear all filters
-                </Button>
-              }
-            />
-          )}
+            ) : (
+              <EmptyState
+                icon={Search}
+                title="No listings match your filters"
+                description="Try removing a filter or widening your search — fewer tags, a nearby city, or clear everything and start over."
+                action={
+                  <Button variant="outline" onClick={clearAll}>
+                    Clear all filters
+                  </Button>
+                }
+              />
+            )}
+          </div>
         </div>
 
         {/* Desktop sticky map */}

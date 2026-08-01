@@ -2,7 +2,7 @@
 
 import { LocateFixed } from "lucide-react";
 import { toast } from "sonner";
-import { useDirectoryNav } from "./use-directory-nav";
+import { useDirectoryFilters } from "./filter-context";
 import { DirectorySearch } from "./directory-search";
 import { FiltersDrawer } from "./tag-group-filters";
 import { cn } from "@/lib/utils/cn";
@@ -14,28 +14,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { DirectoryFilters, FilterData } from "@/lib/directory/types";
+import type { FilterData } from "@/lib/directory/types";
 
 const ALL = "__all__";
 const NEAR_ME = "__near__";
 
-export function DirectoryFilterBar({
-  filters,
-  filterData,
-}: {
-  filters: DirectoryFilters;
-  filterData: FilterData;
-}) {
-  const { setParams } = useDirectoryNav();
+export function DirectoryFilterBar({ filterData }: { filterData: FilterData }) {
+  const { filters, setParams } = useDirectoryFilters();
   const esaActive = filters.esa === "yes";
 
   return (
     <div className="rounded-xl border border-border bg-card p-3 shadow-card">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-        <DirectorySearch
-          value={filters.q ?? ""}
-          className="lg:min-w-[220px] lg:flex-1"
-        />
+        <DirectorySearch className="lg:min-w-[220px] lg:flex-1" />
 
         <div className="flex flex-wrap items-center gap-2">
           {/* Category */}
@@ -110,7 +101,7 @@ export function DirectoryFilterBar({
             ESA Eligible
           </Button>
 
-          <FiltersDrawer filters={filters} filterData={filterData} />
+          <FiltersDrawer filterData={filterData} />
         </div>
       </div>
     </div>
@@ -118,7 +109,7 @@ export function DirectoryFilterBar({
 }
 
 function requestNearMe(
-  setParams: ReturnType<typeof useDirectoryNav>["setParams"],
+  setParams: ReturnType<typeof useDirectoryFilters>["setParams"],
 ) {
   if (typeof navigator === "undefined" || !navigator.geolocation) {
     toast.error("Your browser can't share your location.");

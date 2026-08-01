@@ -1,8 +1,8 @@
 "use client";
 
 import { X } from "lucide-react";
-import { useDirectoryNav } from "./use-directory-nav";
-import type { DirectoryFilters, FilterData } from "@/lib/directory/types";
+import { useDirectoryFilters } from "./filter-context";
+import type { FilterData } from "@/lib/directory/types";
 
 const ESA_LABELS: Record<string, string> = {
   yes: "Accepts ESA",
@@ -11,13 +11,11 @@ const ESA_LABELS: Record<string, string> = {
 };
 
 export function ActiveFilterChips({
-  filters,
   filterData,
 }: {
-  filters: DirectoryFilters;
   filterData: FilterData;
 }) {
-  const { setParams } = useDirectoryNav();
+  const { filters, setParams } = useDirectoryFilters();
 
   const tagNameBySlug = new Map<string, string>();
   for (const group of filterData.groups) {

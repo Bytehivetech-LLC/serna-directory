@@ -1,7 +1,7 @@
 "use client";
 
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { useDirectoryNav } from "./use-directory-nav";
+import { useDirectoryFilters } from "./filter-context";
 import { Button } from "@/components/ui/button";
 
 export function DirectoryPagination({
@@ -11,7 +11,7 @@ export function DirectoryPagination({
   page: number;
   pageCount: number;
 }) {
-  const { setParams } = useDirectoryNav();
+  const { setParams } = useDirectoryFilters();
   if (pageCount <= 1) return null;
 
   const goTo = (target: number) =>

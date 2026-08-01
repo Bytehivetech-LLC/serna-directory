@@ -2,36 +2,25 @@
 
 import { useState } from "react";
 import { ChevronDown, SlidersHorizontal } from "lucide-react";
-import { useDirectoryNav } from "./use-directory-nav";
+import { useDirectoryFilters } from "./filter-context";
+import { FilterDrawer } from "./filter-drawer";
 import { cn } from "@/lib/utils/cn";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet";
-import type { DirectoryFilters, FilterData } from "@/lib/directory/types";
+import type { FilterData } from "@/lib/directory/types";
 
-/** The "Filters" icon button + slide-out drawer holding the tag groups. */
-export function FiltersDrawer({
-  filters,
-  filterData,
-}: {
-  filters: DirectoryFilters;
-  filterData: FilterData;
-}) {
+/** "Filters" button + overlay-free slide-out drawer holding the tag groups. */
+export function FiltersDrawer({ filterData }: { filterData: FilterData }) {
+  const { filters } = useDirectoryFilters();
   const activeCount = filterData.groups.reduce(
-    (sum, g) =>
-      sum + g.tags.filter((t) => filters.tags.includes(t.slug)).length,
+    (sum, g) => sum + g.tags.filter((t) => filters.tags.includes(t.slug)).length,
     0,
   );
 
   return (
-    <Sheet>
-      <SheetTrigger asChild>
+    <FilterDrawer
+      title="Filters"
+      trigger={
         <Button variant="outline" className="gap-2">
           <SlidersHorizontal className="h-4 w-4" />
           Filters
@@ -41,43 +30,31 @@ export function FiltersDrawer({
             </span>
           ) : null}
         </Button>
-      </SheetTrigger>
-      <SheetContent
-        side="right"
-        className="w-[88vw] max-w-sm overflow-y-auto"
-      >
-        <SheetHeader className="text-left">
-          <SheetTitle className="font-display">Filters</SheetTitle>
-        </SheetHeader>
-        <div className="mt-5 space-y-3 pb-8">
-          {filterData.groups.length > 0 ? (
-            filterData.groups.map((group) => (
-              <TagGroupBlock
-                key={group.id}
-                group={group}
-                selected={filters.tags}
-              />
-            ))
-          ) : (
-            <p className="text-sm text-muted-foreground">
-              No additional filters for this selection. Pick a category to see
-              subject filters.
-            </p>
-          )}
-        </div>
-      </SheetContent>
-    </Sheet>
+      }
+    >
+      <div className="space-y-3">
+        {filterData.groups.length > 0 ? (
+          filterData.groups.map((group) => (
+            <TagGroupBlock key={group.id} group={group} />
+          ))
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            No additional filters for this selection. Pick a category to see
+            subject filters.
+          </p>
+        )}
+      </div>
+    </FilterDrawer>
   );
 }
 
 function TagGroupBlock({
   group,
-  selected,
 }: {
   group: FilterData["groups"][number];
-  selected: string[];
 }) {
-  const { setParams } = useDirectoryNav();
+  const { filters, setParams } = useDirectoryFilters();
+  const selected = filters.tags;
   const selectedCount = group.tags.filter((t) =>
     selected.includes(t.slug),
   ).length;
@@ -119,13 +96,16 @@ function TagGroupBlock({
                 <Checkbox
                   checked={checked}
                   onCheckedChange={() =>
-                    setParams((p) => {
-                      const next = checked
-                        ? selected.filter((s) => s !== tag.slug)
-                        : [...selected, tag.slug];
-                      if (next.length) p.set("tags", next.join(","));
-                      else p.delete("tags");
-                    })
+                    setParams(
+                      (p) => {
+                        const next = checked
+                          ? selected.filter((s) => s !== tag.slug)
+                          : [...selected, tag.slug];
+                        if (next.length) p.set("tags", next.join(","));
+                        else p.delete("tags");
+                      },
+                      { debounce: true },
+                    )
                   }
                 />
                 {tag.name}

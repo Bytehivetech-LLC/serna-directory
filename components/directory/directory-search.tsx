@@ -2,35 +2,20 @@
 
 import { useEffect, useState } from "react";
 import { Search } from "lucide-react";
-import { useDirectoryNav } from "./use-directory-nav";
+import { useDirectoryFilters } from "./filter-context";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils/cn";
 
-/** Debounced live search that writes ?q= to the directory URL. */
-export function DirectorySearch({
-  value,
-  className,
-}: {
-  value: string;
-  className?: string;
-}) {
-  const { setParams } = useDirectoryNav();
-  const [text, setText] = useState(value);
+/** Live search box. Writes ?q= via the debounced context. */
+export function DirectorySearch({ className }: { className?: string }) {
+  const { filters, setParams } = useDirectoryFilters();
+  const [text, setText] = useState(filters.q ?? "");
 
-  useEffect(() => setText(value), [value]);
-
+  // Sync only on external changes (e.g. Clear all) — not while typing.
   useEffect(() => {
-    if (text === value) return;
-    const id = setTimeout(() => {
-      setParams((p) => {
-        const trimmed = text.trim();
-        if (trimmed) p.set("q", trimmed);
-        else p.delete("q");
-      });
-    }, 400);
-    return () => clearTimeout(id);
+    if ((filters.q ?? "") !== text.trim()) setText(filters.q ?? "");
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [text]);
+  }, [filters.q]);
 
   return (
     <div className={cn("relative", className)}>
@@ -41,7 +26,18 @@ export function DirectorySearch({
       <Input
         type="search"
         value={text}
-        onChange={(e) => setText(e.target.value)}
+        onChange={(e) => {
+          const value = e.target.value;
+          setText(value);
+          setParams(
+            (p) => {
+              const trimmed = value.trim();
+              if (trimmed) p.set("q", trimmed);
+              else p.delete("q");
+            },
+            { debounce: true },
+          );
+        }}
         placeholder="Search business or keyword"
         aria-label="Search the directory"
         className="pl-9"

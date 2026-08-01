@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { PageContainer } from "@/components/layout/page-container";
 import { DirectoryView } from "@/components/directory/directory-view";
+import { DirectoryFilterProvider } from "@/components/directory/filter-context";
 import { parseFilters, filtersToQueryString } from "@/lib/directory/filters";
 import {
   fetchDirectory,
@@ -75,15 +76,16 @@ export default async function DirectoryHomePage({
         <p className="mt-3 text-base text-muted-foreground">{heroSubtitle}</p>
       </div>
 
-      <DirectoryView
-        listings={result.listings}
-        total={result.total}
-        page={result.page}
-        pageCount={result.pageCount}
-        filters={filters}
-        filterData={filterData}
-        mapSettings={mapSettings}
-      />
+      <DirectoryFilterProvider>
+        <DirectoryView
+          listings={result.listings}
+          total={result.total}
+          page={result.page}
+          pageCount={result.pageCount}
+          filterData={filterData}
+          mapSettings={mapSettings}
+        />
+      </DirectoryFilterProvider>
     </PageContainer>
   );
 }
