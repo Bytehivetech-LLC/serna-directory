@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm --version)",
+      "Bash(git --version)",
+      "Bash(mkdir -p __TRACKED_VAR__/_stash)",
+      "Bash(cp CLAUDE.md __TRACKED_VAR__/_stash/CLAUDE.md)",
+      "Bash(cp -r .claude __TRACKED_VAR__/_stash/.claude)",
+      "Bash(mv CLAUDE.md __TRACKED_VAR__/_stash/CLAUDE.md.moved)",
+      "Bash(mv .claude __TRACKED_VAR__/_stash/.claude.moved)"
+    ]
+  }
+}

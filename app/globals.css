@@ -1,0 +1,97 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/**
+ * Brand channels (RGB, space-separated) + the shadcn/ui semantic layer.
+ *
+ * These are FALLBACK values. At runtime the root layout injects a <style>
+ * built from the `theme` row in site_settings, which overrides every
+ * `--c-*` channel below. If that row is missing or malformed the injected
+ * style still carries the full default set (see lib/theme/get-theme.ts),
+ * so the site can never render unstyled.
+ */
+:root {
+  /* ---- brand channels ---- */
+  --c-ink: 32 31 58;
+  --c-muted: 110 108 138;
+  --c-faint: 164 162 191;
+  --c-indigo: 46 46 143;
+  --c-indigo-deep: 35 34 104;
+  --c-violet: 108 76 232;
+  --c-violet-soft: 239 234 253;
+  --c-bg: 247 246 253;
+  --c-card: 255 255 255;
+  --c-border: 231 229 244;
+  --c-border-strong: 213 210 236;
+  --c-good: 26 143 92;
+  --c-good-soft: 220 243 232;
+  --c-warm: 255 248 240;
+  --c-warm-border: 244 223 192;
+  --c-danger: 214 69 69;
+  --c-danger-soft: 251 231 231;
+  --c-header-bg: 35 34 104;
+  --c-header-text: 255 255 255;
+
+  --radius-card: 16px;
+  --radius: var(--radius-card);
+
+  /* next/font provides --font-bricolage / --font-inter; the quoted family
+     name comes from the theme so a swapped font is honoured first. */
+  --font-display: "Bricolage Grotesque", var(--font-bricolage), ui-sans-serif,
+    system-ui, sans-serif;
+  --font-body: "Inter", var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+
+  /* ---- shadcn/ui semantic layer -> brand channels ---- */
+  --background: var(--c-bg);
+  --foreground: var(--c-ink);
+  --card: var(--c-card);
+  --card-foreground: var(--c-ink);
+  --popover: var(--c-card);
+  --popover-foreground: var(--c-ink);
+  --primary: var(--c-indigo);
+  --primary-foreground: 255 255 255;
+  --secondary: var(--c-violet-soft);
+  --secondary-foreground: var(--c-indigo-deep);
+  --muted: var(--c-violet-soft);
+  --muted-foreground: var(--c-muted);
+  --accent: var(--c-violet-soft);
+  --accent-foreground: var(--c-indigo-deep);
+  --destructive: var(--c-danger);
+  --destructive-foreground: 255 255 255;
+  --border: var(--c-border);
+  --input: var(--c-border-strong);
+  --ring: var(--c-violet);
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground font-body antialiased;
+  }
+  h1,
+  h2,
+  h3,
+  h4 {
+    @apply font-display;
+  }
+  /* Violet = focus, everywhere. */
+  :focus-visible {
+    outline: 3px solid rgb(var(--c-violet));
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
