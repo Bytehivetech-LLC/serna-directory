@@ -121,6 +121,23 @@ export default async function AdminDashboardPage() {
         </SectionCard>
       </div>
 
+      {/* Stripe webhook failures — a hard signal something isn't being processed. */}
+      {data.webhookFailures > 0 ? (
+        <div className="flex flex-wrap items-center gap-4 rounded-xl border border-danger/30 bg-danger-soft px-5 py-4">
+          <AlertTriangle className="h-5 w-5 shrink-0 text-danger" aria-hidden />
+          <p className="text-sm text-ink">
+            <b>
+              {data.webhookFailures} Stripe webhook{" "}
+              {data.webhookFailures === 1 ? "failure" : "failures"} this week.
+            </b>{" "}
+            Events failed to process and Stripe is retrying.{" "}
+            <Link href="/admin/audit" className="font-semibold text-indigo hover:underline">
+              See the audit log
+            </Link>
+          </p>
+        </div>
+      ) : null}
+
       {/* Billing problems — only when there are any. */}
       {data.billing.failedPayments > 0 || data.billing.pastDueSubs > 0 ? (
         <div className="flex flex-wrap items-center gap-4 rounded-xl border border-warm-border bg-warm px-5 py-4">

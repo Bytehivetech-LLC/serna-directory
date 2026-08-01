@@ -123,8 +123,11 @@ Never read `.env.local` or `keys.txt`.
     the admin email + sign out, and a violet **ADMIN** badge. `/admin` dashboard:
     pending-review count (links to `/admin/listings?status=pending_review`),
     listings-by-status, new users this week, revenue this month, recent audit,
-    and a billing-attention strip (failed payments + past-due subs — there is no
-    dedicated webhook-failure table in the schema, so those are the signal).
+    a billing-attention strip (failed payments + past-due subs), and a **Stripe
+    webhook-failure** alert. The webhook (`/api/webhooks/stripe`) now writes an
+    `audit_log` row (`action: "stripe.webhook_failed"`, actor `stripe-webhook`)
+    on both 500 paths — the handler-failure catch and the "couldn't record event"
+    branch — and the dashboard counts those from the last 7 days.
   - **`logAudit()`** (`lib/audit/log.ts`) writes one immutable `audit_log` row —
     actor id+email (from the session/profile), action (`verb.noun`), entity,
     a computed before/after **diff**, IP, and user agent — via the service-role

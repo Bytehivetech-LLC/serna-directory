@@ -27,6 +27,7 @@ export type AdminDashboard = {
     created_at: string;
   }[];
   billing: { failedPayments: number; pastDueSubs: number };
+  webhookFailures: number;
 };
 
 async function countListings(
@@ -60,6 +61,7 @@ export async function getAdminDashboard(): Promise<AdminDashboard> {
     { data: recentAudit },
     { count: failedPayments },
     { count: pastDueSubs },
+    { count: webhookFailures },
   ] = await Promise.all([
     Promise.all(LISTING_STATUSES.map((s) => countListings(admin, s))),
     admin
@@ -84,6 +86,11 @@ export async function getAdminDashboard(): Promise<AdminDashboard> {
       .from("subscriptions")
       .select("id", { count: "exact", head: true })
       .in("status", ["past_due", "unpaid"]),
+    admin
+      .from("audit_log")
+      .select("id", { count: "exact", head: true })
+      .eq("action", "stripe.webhook_failed")
+      .gte("created_at", weekAgo),
   ]);
 
   const statusCounts = Object.fromEntries(
@@ -105,6 +112,7 @@ export async function getAdminDashboard(): Promise<AdminDashboard> {
       failedPayments: failedPayments ?? 0,
       pastDueSubs: pastDueSubs ?? 0,
     },
+    webhookFailures: webhookFailures ?? 0,
   };
 }
 

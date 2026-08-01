@@ -36,6 +36,32 @@ function toIso(unixSeconds: number | null | undefined): string | null {
     : null;
 }
 
+/**
+ * Record a webhook failure to the audit log so the admin dashboard can surface
+ * it. The actor is the system (no user session on a webhook). Best-effort — a
+ * logging failure must never change the 500 we're about to return to Stripe.
+ */
+async function recordWebhookFailure(
+  admin: Admin,
+  request: NextRequest,
+  info: { eventId: string | null; eventType: string | null; error: string },
+): Promise<void> {
+  try {
+    await admin.from("audit_log").insert({
+      actor_id: null,
+      actor_email: "stripe-webhook",
+      action: "stripe.webhook_failed",
+      entity_type: "stripe_event",
+      entity_id: info.eventId,
+      diff: { type: info.eventType, error: info.error } as unknown as Json,
+      ip_address: request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null,
+      user_agent: request.headers.get("user-agent"),
+    });
+  } catch (err) {
+    console.error("[stripe] audit insert failed:", err);
+  }
+}
+
 /** Period end lives on subscription items in recent API versions. */
 function subPeriodEnd(sub: Stripe.Subscription): string | null {
   const item = sub.items?.data?.[0] as
@@ -84,6 +110,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ received: true, duplicate: true });
     }
     // Couldn't record it — ask Stripe to retry.
+    await recordWebhookFailure(admin, request, {
+      eventId: event.id,
+      eventType: event.type,
+      error: `Could not record event: ${claimError.message}`,
+    });
     return NextResponse.json({ error: "Could not record event" }, { status: 500 });
   }
 
@@ -111,10 +142,13 @@ export async function POST(request: NextRequest) {
         break; // unhandled types are acknowledged
     }
   } catch (error) {
-    console.error(
-      `[stripe] handler failed for ${event.type}:`,
-      error instanceof Error ? error.message : error,
-    );
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`[stripe] handler failed for ${event.type}:`, message);
+    await recordWebhookFailure(admin, request, {
+      eventId: event.id,
+      eventType: event.type,
+      error: message,
+    });
     return NextResponse.json({ error: "Handler failed" }, { status: 500 });
   }
 
