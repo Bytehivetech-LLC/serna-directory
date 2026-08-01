@@ -110,8 +110,41 @@ Never read `.env.local` or `keys.txt`.
   **3 — Authentication**, **4 — Directory page**, **5 — Listing page**,
   **6 — Listing form**, **7 — Accounts & email**, **8 — Stripe**,
   **9 — Owner dashboard**, **10 — Admin shell & users**,
-  **11 — Admin listings & moderation**
-- Next phase: **12** (per `docs/04-CLAUDE-PROMPTS.md`)
+  **11 — Admin listings & moderation**, **12 — Admin packages & Stripe**
+- Next phase: **13** (per `docs/04-CLAUDE-PROMPTS.md`)
+- Phase 12 notes:
+  - **Reusable Stripe sync** (`lib/stripe/sync.ts`, `kind: "package" | "addon"` so
+    Phase 13 reuses it): `syncStripeProductPrice` creates/updates the Product and
+    treats Prices as **immutable** — a price/currency/interval change mints a NEW
+    price, archives the old, and returns a warning; **no one is migrated**. Free
+    tier archives any existing price. `reconcileStripe` reports name/price drift
+    and pushes the name to Stripe (never changes a price). `archiveStripeProduct`
+    retires product+price. See `docs/STRIPE.md`.
+  - `/admin/packages`: list (name, price, interval, listing limit, approval,
+    active, order, **live subscriber count**) with **drag + arrow reorder**
+    (auto-saves via `reorderPackagesAction`) and a **connection-status banner**
+    (`lib/stripe/status.ts`: live/test from key prefix, account name, webhook
+    health from latest `stripe_events`). Create/edit form covers every field +
+    repeatable **feature bullets** + badge label/colour; **Sync from Stripe**
+    button runs reconcile. Single-default enforced. Delete blocked when active
+    subscribers (or listings) reference it → **archive instead**.
+  - Package actions (`lib/admin/packages-actions.ts`, requireAdmin + Zod +
+    logAudit): create/update (both run the Stripe sync, persist product/price ids,
+    surface the price-change warning), reorder, archive, delete, reconcile.
+  - `/admin/payments`: read-only payments table (user, listing, amount, status,
+    date) + **Stripe deep links** that respect test/live mode
+    (`lib/stripe/dashboard-links.ts`), status/date filters, **CSV export**
+    (`/admin/payments/export` route, admin-gated), a **revenue summary** (this
+    month, last month, **MRR** = active subs normalised to monthly, active subs,
+    churn this month), and an active-subscriptions table. Refunds link out to
+    Stripe — never performed here.
+  - `ensurePackagePrice` (Phase 8) stays as the checkout-time fallback; the admin
+    sync is the deliberate path.
+
+### Phase 12 manual setup / notes
+- No new migrations. Needs `STRIPE_SECRET_KEY` (+ `STRIPE_WEBHOOK_SECRET` for
+  webhooks) to create real products/prices; without it the pages still render and
+  the status banner says "not configured".
 - Phase 11 notes:
   - `/admin/listings`: server-side table via **`admin_list_listings`** RPC
     (EXECUTE → service_role only) — cover thumb, name, owner email, category,
