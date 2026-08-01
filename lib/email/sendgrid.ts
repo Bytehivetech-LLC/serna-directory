@@ -9,25 +9,29 @@ export type SendEmailInput = {
   replyTo?: { email: string; name?: string };
 };
 
+export type SendResult = {
+  status: "sent" | "skipped" | "failed";
+  providerId?: string;
+  error?: string;
+};
+
 /**
- * Send a transactional email via SendGrid. If SENDGRID_API_KEY isn't configured
- * (e.g. local dev), it logs and no-ops rather than throwing — callers treat
- * email as best-effort so a mail hiccup never loses the underlying record.
- * Returns whether the send was attempted successfully.
+ * Low-level SendGrid send. Never throws. Returns a structured result (used for
+ * email_log). "skipped" = SendGrid not configured (dev); "failed" = an error.
  */
-export async function sendEmail(input: SendEmailInput): Promise<boolean> {
+export async function sendEmail(input: SendEmailInput): Promise<SendResult> {
   const apiKey = process.env.SENDGRID_API_KEY;
   const fromEmail = process.env.SENDGRID_FROM_EMAIL;
   if (!apiKey || !fromEmail) {
     console.warn(
       `[email] SendGrid not configured — would send "${input.subject}" to ${input.to}`,
     );
-    return false;
+    return { status: "skipped" };
   }
 
   try {
     sgMail.setApiKey(apiKey);
-    await sgMail.send({
+    const [response] = await sgMail.send({
       to: input.to,
       from: {
         email: fromEmail,
@@ -38,12 +42,12 @@ export async function sendEmail(input: SendEmailInput): Promise<boolean> {
       html: input.html,
       text: input.text,
     });
-    return true;
+    const providerId =
+      (response?.headers?.["x-message-id"] as string | undefined) ?? undefined;
+    return { status: "sent", providerId };
   } catch (error) {
-    console.error(
-      "[email] SendGrid send failed:",
-      error instanceof Error ? error.message : error,
-    );
-    return false;
+    const message = error instanceof Error ? error.message : String(error);
+    console.error("[email] SendGrid send failed:", message);
+    return { status: "failed", error: message };
   }
 }

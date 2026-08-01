@@ -108,8 +108,28 @@ Never read `.env.local` or `keys.txt`.
 
 - Phases complete: **1 — Scaffold**, **2 — Supabase wiring & route protection**,
   **3 — Authentication**, **4 — Directory page**, **5 — Listing page**,
-  **6 — Listing form**
-- Next phase: **7** (per `docs/04-CLAUDE-PROMPTS.md`)
+  **6 — Listing form**, **7 — Accounts & email**
+- Next phase: **8** (per `docs/04-CLAUDE-PROMPTS.md`)
+- Phase 7 notes:
+  - Submit flow branches: signed in → theirs; **existing email (not signed in)**
+    → listing saved as `draft`, redirect to `/login?next=/list-a-program/finish
+    ?draft=ID`; **new email** → `auth.admin.createUser` (no password) + profile
+    (onboarding_complete=false) + listing + magic-link `complete_profile` email.
+    Free → pending_review (or published if `requires_approval=false`); paid →
+    Phase 8. `/list-a-program/finish` claims the draft after login.
+  - **Email: `render(templateKey, context)`** reads `email_templates` (27 seeded)
+    + interpolates `{{vars}}` into a code-owned HTML shell; hardcoded fallbacks;
+    `email_log` records every send (status/provider/error, never the body).
+    Context values are HTML-escaped (XSS-safe); Phase 16 builds the editor on the
+    same contract. Wired: complete_profile, listing_submitted, inquiry_received
+    (Phase 5 inquiry email refactored onto it).
+  - **Deviation:** the email pipeline (template read + email_log write) uses the
+    service-role client — a server-only email pipeline beyond the literal
+    "three places" rule, but never exposed to the client.
+  - Enumeration: existing-email path redirects to /login (per the phase's Check-it);
+    the success screen text itself doesn't reveal account state.
+  - Not verifiable locally: real submit (creates accounts/listings), actual mail
+    delivery (needs SENDGRID_API_KEY), magic-link sign-in.
 - Phase 6 notes:
   - `/list-a-program` is fully DB-driven from `form_sections`/`form_fields`
     (6 sections, 13 core fields → listing columns), category-aware labels from

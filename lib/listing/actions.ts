@@ -5,8 +5,7 @@ import { cookies, headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { verifyRecaptcha } from "@/lib/security/recaptcha";
 import { checkRateLimit, minutesUntil } from "@/lib/utils/rate-limit";
-import { sendEmail } from "@/lib/email/sendgrid";
-import { buildInquiryEmail } from "@/lib/email/templates/inquiry-notification";
+import { sendTemplateEmail } from "@/lib/email/send";
 import { inquiryCreateSchema } from "@/lib/validation/schemas";
 import {
   type FormState,
@@ -19,16 +18,6 @@ function clientIp(h: Headers): string {
   return h.get("x-real-ip") ?? "unknown";
 }
 
-function siteOrigin(h: Headers): string {
-  const host = h.get("x-forwarded-host") ?? h.get("host");
-  if (host) {
-    const proto =
-      h.get("x-forwarded-proto") ??
-      (host.includes("localhost") || host.startsWith("127.") ? "http" : "https");
-    return `${proto}://${host}`;
-  }
-  return process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
-}
 
 /* --------------------------------------------------------- inquiry ------- */
 
@@ -101,20 +90,17 @@ export async function submitInquiryAction(
 
   // Best-effort owner notification — the inquiry is already saved.
   if (listing.contact_email) {
-    const { subject, html, text } = buildInquiryEmail({
-      businessName: listing.business_name,
-      listingUrl: `${siteOrigin(h)}/listing/${listing.slug}`,
-      name,
-      email,
-      phone,
-      message,
-    });
-    await sendEmail({
+    await sendTemplateEmail("inquiry_received", {
       to: listing.contact_email,
-      subject,
-      html,
-      text,
+      listingId: listing.id,
       replyTo: { email, name },
+      context: {
+        listing_name: listing.business_name,
+        enquirer_name: name,
+        enquirer_email: email,
+        message,
+        listing_id: listing.id,
+      },
     });
   }
 

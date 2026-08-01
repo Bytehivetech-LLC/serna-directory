@@ -200,6 +200,14 @@ export function ListingForm({
         return;
       }
 
+      // Existing account → sign in and finish (the server saved a draft).
+      if (result.mode === "existing") {
+        clearDraft();
+        toast.message(result.message);
+        window.location.href = result.redirectTo;
+        return;
+      }
+
       // Upload processed photos browser → Supabase via the signed URLs.
       if (result.uploads.length) {
         const supabase = createClient();

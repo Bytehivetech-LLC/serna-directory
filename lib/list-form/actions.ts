@@ -2,11 +2,14 @@
 
 import { headers } from "next/headers";
 import DOMPurify from "isomorphic-dompurify";
+import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { verifyRecaptcha } from "@/lib/security/recaptcha";
 import { checkRateLimit, minutesUntil } from "@/lib/utils/rate-limit";
 import { slugify } from "@/lib/utils/slug";
 import { geocodeAddress } from "@/lib/geo/geocode";
+import { getSettings } from "@/lib/settings";
+import { sendTemplateEmail } from "@/lib/email/send";
 import { zodErrorToFieldErrors } from "@/lib/forms";
 import { listingSubmitSchema, type ListingSubmitInput } from "./submit-schema";
 
@@ -22,17 +25,30 @@ export type UploadTarget = {
 export type SubmitResult =
   | {
       ok: true;
+      mode: "created" | "signed_in";
       listingId: string;
       slug: string;
       featured: boolean;
       uploads: UploadTarget[];
     }
+  | { ok: true; mode: "existing"; redirectTo: string; message: string }
   | { ok: false; error?: string; fieldErrors?: Record<string, string> };
 
 function clientIp(h: Headers): string {
   const forwarded = h.get("x-forwarded-for");
   if (forwarded) return forwarded.split(",")[0]!.trim();
   return h.get("x-real-ip") ?? "unknown";
+}
+
+function siteOrigin(h: Headers): string {
+  const host = h.get("x-forwarded-host") ?? h.get("host");
+  if (host) {
+    const proto =
+      h.get("x-forwarded-proto") ??
+      (host.includes("localhost") || host.startsWith("127.") ? "http" : "https");
+    return `${proto}://${host}`;
+  }
+  return process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
 }
 
 function descriptionHtml(text: string): string {
@@ -59,6 +75,8 @@ export async function submitListingAction(
 
   const h = await headers();
   const ip = clientIp(h);
+  const origin = siteOrigin(h);
+
   const limit = await checkRateLimit(`listing-submit:ip:${ip}`, 5, 60 * 60);
   if (!limit.allowed) {
     const mins = minutesUntil(limit.resetAt);
@@ -76,14 +94,10 @@ export async function submitListingAction(
   const admin = createAdminClient();
 
   const [{ data: category }, { data: pkg }] = await Promise.all([
-    admin
-      .from("categories")
-      .select("id")
-      .eq("slug", data.categorySlug)
-      .maybeSingle(),
+    admin.from("categories").select("id").eq("slug", data.categorySlug).maybeSingle(),
     admin
       .from("packages")
-      .select("id, allows_featured, requires_approval")
+      .select("id, allows_featured, requires_approval, price_cents")
       .eq("slug", data.packageSlug)
       .maybeSingle(),
   ]);
@@ -91,44 +105,55 @@ export async function submitListingAction(
     return { ok: false, error: "That category or plan is no longer available." };
   }
 
-  // Provision the owner account (sanctioned service-role use). Created without a
-  // password — the Phase 7 account flow sends a set-password link.
   const email = data.core.contact_email;
-  let ownerId: string | null = null;
-  const { data: existing } = await admin
-    .from("profiles")
-    .select("id")
-    .eq("email", email)
-    .maybeSingle();
-  if (existing) {
-    ownerId = existing.id;
+
+  // ---- Account branch -----------------------------------------------------
+  // Signed in → theirs. Existing account (not signed in) → draft to claim after
+  // login. New email → provision a passwordless account + magic link.
+  const supabase = await createClient();
+  const {
+    data: { user: currentUser },
+  } = await supabase.auth.getUser();
+
+  let ownerId: string;
+  let mode: "created" | "signed_in" | "existing";
+  let newAccount = false;
+
+  if (currentUser) {
+    ownerId = currentUser.id;
+    mode = "signed_in";
   } else {
-    const { data: created } = await admin.auth.admin.createUser({
-      email,
-      email_confirm: false,
-      user_metadata: { full_name: data.core.contact_name },
-    });
-    ownerId = created?.user?.id ?? null;
-    if (ownerId) {
+    const { data: existing } = await admin
+      .from("profiles")
+      .select("id")
+      .eq("email", email)
+      .maybeSingle();
+    if (existing) {
+      ownerId = existing.id;
+      mode = "existing";
+    } else {
+      const { data: created } = await admin.auth.admin.createUser({
+        email,
+        email_confirm: false,
+        user_metadata: { full_name: data.core.contact_name },
+      });
+      if (!created?.user) {
+        return { ok: false, error: "We couldn't set up your account. Please try again." };
+      }
+      ownerId = created.user.id;
+      newAccount = true;
+      mode = "created";
       await admin.from("profiles").upsert({
         id: ownerId,
         email,
         full_name: data.core.contact_name,
         role: "user",
+        onboarding_complete: false,
       });
     }
   }
-  if (!ownerId) {
-    return { ok: false, error: "We couldn't set up your account. Please try again." };
-  }
 
-  const slug = `${slugify(data.core.business_name) || "listing"}-${crypto.randomUUID().slice(0, 6)}`;
-  const alsoServes = (data.core.also_serves ?? "")
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
-
-  // Coordinates: prefer Places; otherwise geocode the manual address server-side.
+  // ---- Coordinates --------------------------------------------------------
   let latitude = data.geo?.latitude ?? null;
   let longitude = data.geo?.longitude ?? null;
   let googlePlaceId = data.geo?.google_place_id ?? null;
@@ -146,13 +171,29 @@ export async function submitListingAction(
     }
   }
 
+  // Existing-account drafts wait to be claimed; everyone else goes to review
+  // (or straight to published when the package doesn't require approval).
+  const status =
+    mode === "existing"
+      ? "draft"
+      : pkg.requires_approval
+        ? "pending_review"
+        : "published";
+
+  const slug = `${slugify(data.core.business_name) || "listing"}-${crypto.randomUUID().slice(0, 6)}`;
+  const alsoServes = (data.core.also_serves ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const nowIso = new Date().toISOString();
+
   const { data: listing, error: listingError } = await admin
     .from("listings")
     .insert({
       owner_id: ownerId,
       category_id: category.id,
       package_id: pkg.id,
-      status: "pending_review",
+      status,
       slug,
       business_name: data.core.business_name,
       contact_name: data.core.contact_name,
@@ -175,7 +216,8 @@ export async function submitListingAction(
       longitude,
       google_place_id: googlePlaceId,
       custom_fields: data.customFields,
-      submitted_at: new Date().toISOString(),
+      submitted_at: mode === "existing" ? null : nowIso,
+      published_at: status === "published" ? nowIso : null,
     })
     .select("id, slug")
     .single();
@@ -183,7 +225,7 @@ export async function submitListingAction(
     return { ok: false, error: "We couldn't create your listing. Please try again." };
   }
 
-  // Attach tags.
+  // Tags (all modes).
   if (data.tagSlugs.length) {
     const { data: tags } = await admin
       .from("tags")
@@ -196,8 +238,19 @@ export async function submitListingAction(
     }
   }
 
-  // Image allowance from entitlements (the ONLY source of truth), then
-  // pre-create rows + signed upload URLs for the browser to push blobs into.
+  // Existing account → hand off to /login → /finish (photos re-added there).
+  if (mode === "existing") {
+    const next = `/list-a-program/finish?draft=${listing.id}`;
+    return {
+      ok: true,
+      mode: "existing",
+      redirectTo: `/login?next=${encodeURIComponent(next)}`,
+      message:
+        "You already have an account — sign in and we'll finish publishing.",
+    };
+  }
+
+  // ---- Images: allowance from entitlements, then signed upload URLs --------
   let maxImages = 8;
   const { data: ent } = await admin.rpc("listing_entitlements", {
     p_listing_id: listing.id,
@@ -234,11 +287,49 @@ export async function submitListingAction(
     });
   }
 
+  // ---- Transactional email ------------------------------------------------
+  const settings = await getSettings(["review_sla_days"]);
+  const reviewDays =
+    typeof settings.review_sla_days === "number" ? settings.review_sla_days : 2;
+  const listingPath = `${origin}/listing/${listing.slug}`;
+
+  if (newAccount) {
+    const { data: link } = await admin.auth.admin.generateLink({
+      type: "magiclink",
+      email,
+      options: {
+        redirectTo: `${origin}/auth/callback?next=${encodeURIComponent("/dashboard/profile?welcome=1")}`,
+      },
+    });
+    await sendTemplateEmail("complete_profile", {
+      to: email,
+      userId: ownerId,
+      listingId: listing.id,
+      context: {
+        owner_name: data.core.contact_name,
+        magic_link: link?.properties?.action_link ?? `${origin}/login`,
+      },
+    });
+  }
+
+  await sendTemplateEmail("listing_submitted", {
+    to: email,
+    userId: ownerId,
+    listingId: listing.id,
+    context: {
+      owner_name: data.core.contact_name,
+      listing_name: data.core.business_name,
+      listing_path: listingPath,
+      review_days: reviewDays,
+    },
+  });
+
   return {
     ok: true,
+    mode,
     listingId: listing.id,
     slug: listing.slug ?? slug,
-    featured: false,
+    featured: pkg.price_cents > 0 && pkg.allows_featured,
     uploads,
   };
 }
