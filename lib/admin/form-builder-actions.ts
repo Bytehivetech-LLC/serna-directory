@@ -6,14 +6,17 @@ import { requireAdmin } from "@/lib/auth/guards";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logAudit } from "@/lib/audit/log";
 import { slugify } from "@/lib/utils/slug";
+import { revalidateWeb } from "@/lib/admin/revalidate-web";
 import { countCustomFieldUsage } from "./form-builder-queries";
 import type { AdminActionResult } from "./users-actions";
 
 const idSchema = z.string().uuid();
 
-function revalidateForm() {
+async function revalidateForm() {
   revalidatePath("/list-a-program");
   revalidatePath("/admin/form-builder");
+  // Bridge to the separate public deployment (no-op on single-deployment dev).
+  await revalidateWeb({ paths: ["/list-a-program"] });
 }
 
 /* ============================================================= sections === */
@@ -49,7 +52,7 @@ export async function createSectionAction(input: SectionInput): Promise<AdminAct
   });
   if (error) return { ok: false, error: "Couldn't create the section." };
   await logAudit({ action: "form_section.create", entityType: "form_section", meta: { title: d.title } });
-  revalidateForm();
+  await revalidateForm();
   return { ok: true, message: "Section added." };
 }
 
@@ -66,7 +69,7 @@ export async function updateSectionAction(id: string, input: SectionInput): Prom
     .eq("id", id);
   if (error) return { ok: false, error: "Couldn't save the section." };
   await logAudit({ action: "form_section.update", entityType: "form_section", entityId: id });
-  revalidateForm();
+  await revalidateForm();
   return { ok: true, message: "Section saved." };
 }
 
@@ -77,7 +80,7 @@ export async function reorderSectionsAction(ids: string[]): Promise<AdminActionR
   const admin = createAdminClient();
   await Promise.all(parsed.data.map((id, i) => admin.from("form_sections").update({ sort_order: i }).eq("id", id)));
   await logAudit({ action: "form_section.reorder", entityType: "form_section" });
-  revalidateForm();
+  await revalidateForm();
   return { ok: true };
 }
 
@@ -95,7 +98,7 @@ export async function deleteSectionAction(id: string): Promise<AdminActionResult
   const { error } = await admin.from("form_sections").delete().eq("id", id);
   if (error) return { ok: false, error: "Couldn't delete the section." };
   await logAudit({ action: "form_section.delete", entityType: "form_section", entityId: id });
-  revalidateForm();
+  await revalidateForm();
   return { ok: true, message: "Section deleted." };
 }
 
@@ -169,7 +172,7 @@ export async function createFieldAction(input: FieldInput): Promise<AdminActionR
   });
   if (error) return { ok: false, error: "Couldn't create the field." };
   await logAudit({ action: "form_field.create", entityType: "form_field", meta: { label: d.label } });
-  revalidateForm();
+  await revalidateForm();
   return { ok: true, message: "Field added." };
 }
 
@@ -207,7 +210,7 @@ export async function updateFieldAction(id: string, input: FieldInput): Promise<
   const { error } = await admin.from("form_fields").update(patch).eq("id", id);
   if (error) return { ok: false, error: "Couldn't save the field." };
   await logAudit({ action: "form_field.update", entityType: "form_field", entityId: id, after: { label: d.label } });
-  revalidateForm();
+  await revalidateForm();
   return { ok: true, message: "Field saved." };
 }
 
@@ -218,7 +221,7 @@ export async function reorderFieldsAction(ids: string[]): Promise<AdminActionRes
   const admin = createAdminClient();
   await Promise.all(parsed.data.map((id, i) => admin.from("form_fields").update({ sort_order: i }).eq("id", id)));
   await logAudit({ action: "form_field.reorder", entityType: "form_field" });
-  revalidateForm();
+  await revalidateForm();
   return { ok: true };
 }
 
@@ -241,7 +244,7 @@ export async function moveFieldAction(id: string, toSectionId: string): Promise<
     .eq("id", id);
   if (error) return { ok: false, error: "Couldn't move the field." };
   await logAudit({ action: "form_field.move", entityType: "form_field", entityId: id, meta: { to: toSectionId } });
-  revalidateForm();
+  await revalidateForm();
   return { ok: true, message: "Field moved." };
 }
 
@@ -260,7 +263,7 @@ export async function deleteFieldAction(id: string): Promise<AdminActionResult> 
   const { error } = await admin.from("form_fields").delete().eq("id", id);
   if (error) return { ok: false, error: "Couldn't delete the field." };
   await logAudit({ action: "form_field.delete", entityType: "form_field", entityId: id, meta: { label: field.label } });
-  revalidateForm();
+  await revalidateForm();
   return { ok: true, message: "Field deleted (saved data kept)." };
 }
 

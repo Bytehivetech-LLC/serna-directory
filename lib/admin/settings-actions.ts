@@ -7,6 +7,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { logAudit } from "@/lib/audit/log";
 import { sendEmail } from "@/lib/email/sendgrid";
 import { enqueueAssetDeletion, pathFromPublicUrl } from "@/lib/assets/lifecycle";
+import { revalidateWeb, publicSyncMessage } from "@/lib/admin/revalidate-web";
 import type { AdminActionResult } from "./users-actions";
 
 const ASSETS_BUCKET = "site-assets";
@@ -49,7 +50,8 @@ export async function updateBrandingAction(input: unknown): Promise<AdminActionR
     "settings.branding",
   );
   revalidatePath("/", "layout");
-  return { ok: true, message: "Branding saved." };
+  const synced = await revalidateWeb({ layout: true });
+  return { ok: true, message: publicSyncMessage(synced, "Branding saved.") };
 }
 
 export async function signBrandingUploadAction(
@@ -83,7 +85,11 @@ export async function setBrandingImageAction(
   const publicUrl = admin.storage.from(ASSETS_BUCKET).getPublicUrl(path).data.publicUrl;
   await writeSettings({ [settingKey]: publicUrl }, "settings.branding_image");
   revalidatePath("/", "layout");
-  return { ok: true, message: `${kind === "logo" ? "Logo" : "Favicon"} updated.` };
+  const synced = await revalidateWeb({ layout: true });
+  return {
+    ok: true,
+    message: publicSyncMessage(synced, `${kind === "logo" ? "Logo" : "Favicon"} updated.`),
+  };
 }
 
 /* ------------------------------------------------------------- directory --- */
@@ -101,6 +107,7 @@ export async function updateDirectoryAction(input: unknown): Promise<AdminAction
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]!.message };
   await writeSettings({ ...parsed.data }, "settings.directory");
   revalidatePath("/");
+  await revalidateWeb({ paths: ["/"] });
   return { ok: true, message: "Directory settings saved." };
 }
 
@@ -126,6 +133,7 @@ export async function updateMapsAction(input: unknown): Promise<AdminActionResul
     "settings.maps",
   );
   revalidatePath("/");
+  await revalidateWeb({ paths: ["/"] });
   return { ok: true, message: "Map settings saved." };
 }
 
@@ -182,6 +190,7 @@ export async function updateConsentBannerAction(enabled: boolean): Promise<Admin
   await requireAdmin();
   await writeSettings({ consent_banner_enabled: enabled }, "settings.consent");
   revalidatePath("/", "layout");
+  await revalidateWeb({ layout: true });
   return { ok: true, message: enabled ? "Consent banner enabled." : "Consent banner disabled." };
 }
 
@@ -220,6 +229,7 @@ export async function createMenuItemAction(input: unknown): Promise<AdminActionR
   if (error) return { ok: false, error: "Couldn't add the link." };
   await logAudit({ action: "menu.create", entityType: "menu_item" });
   revalidatePath("/", "layout");
+  await revalidateWeb({ layout: true });
   return { ok: true, message: "Link added." };
 }
 
@@ -233,6 +243,7 @@ export async function updateMenuItemAction(id: string, input: unknown): Promise<
   if (error) return { ok: false, error: "Couldn't save the link." };
   await logAudit({ action: "menu.update", entityType: "menu_item", entityId: id });
   revalidatePath("/", "layout");
+  await revalidateWeb({ layout: true });
   return { ok: true, message: "Link saved." };
 }
 
@@ -244,6 +255,7 @@ export async function toggleMenuItemAction(id: string, value: boolean): Promise<
   if (error) return { ok: false, error: "Couldn't update the link." };
   await logAudit({ action: "menu.toggle", entityType: "menu_item", entityId: id });
   revalidatePath("/", "layout");
+  await revalidateWeb({ layout: true });
   return { ok: true };
 }
 
@@ -255,6 +267,7 @@ export async function reorderMenuItemsAction(ids: string[]): Promise<AdminAction
   await Promise.all(parsed.data.map((id, i) => admin.from("menu_items").update({ sort_order: i }).eq("id", id)));
   await logAudit({ action: "menu.reorder", entityType: "menu_item" });
   revalidatePath("/", "layout");
+  await revalidateWeb({ layout: true });
   return { ok: true };
 }
 
@@ -267,5 +280,6 @@ export async function deleteMenuItemAction(id: string): Promise<AdminActionResul
   if (error) return { ok: false, error: "Couldn't delete the link." };
   await logAudit({ action: "menu.delete", entityType: "menu_item", entityId: id });
   revalidatePath("/", "layout");
+  await revalidateWeb({ layout: true });
   return { ok: true, message: "Link deleted." };
 }

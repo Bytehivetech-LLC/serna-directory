@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { requireAdmin, getSession } from "@/lib/auth/guards";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logAudit } from "@/lib/audit/log";
+import { revalidateWeb, publicSyncMessage } from "@/lib/admin/revalidate-web";
 import { defaultTheme, THEME_COLOR_KEYS, type Theme } from "@/lib/theme/defaults";
 import { mergeTheme } from "@/lib/theme/get-theme";
 import { blockingFailures } from "@/lib/theme/contrast";
@@ -79,9 +80,14 @@ export async function publishThemeAction(input: unknown): Promise<ThemeActionRes
   await writeSetting("theme_draft", theme);
   await logAudit({ action: "theme.publish", entityType: "theme", after: theme as unknown as Record<string, unknown> });
 
-  // The theme lives in the root layout — revalidate everything public.
+  // The theme lives in the root layout — revalidate the admin's own cache, then
+  // bridge to the separate public deployment so the live site actually repaints.
   revalidatePath("/", "layout");
-  return { ok: true, message: "Theme published. The whole site now uses it." };
+  const synced = await revalidateWeb({ layout: true });
+  return {
+    ok: true,
+    message: publicSyncMessage(synced, "Theme published. The whole site now uses it."),
+  };
 }
 
 export async function discardDraftAction(): Promise<ThemeActionResult> {

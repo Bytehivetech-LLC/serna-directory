@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth/guards";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logAudit } from "@/lib/audit/log";
+import { revalidateWeb } from "@/lib/admin/revalidate-web";
 import { slugify } from "@/lib/utils/slug";
 import {
   syncStripeProductPrice,
@@ -107,6 +108,7 @@ export async function createAddonAction(input: AddonInput): Promise<AddonActionR
     after: { name: d.name, price_cents: d.price_cents, effect: d.effect },
   });
   revalidatePath("/admin/addons");
+  await revalidateWeb({ paths: ["/list-a-program"] });
   return { ok: true, id: created.id, warning: sync.warning };
 }
 
@@ -179,6 +181,7 @@ export async function updateAddonAction(
     meta: sync.priceChanged ? { price_changed: true, archived_price: sync.archivedPriceId } : undefined,
   });
   revalidatePath("/admin/addons");
+  await revalidateWeb({ paths: ["/list-a-program"] });
   revalidatePath(`/admin/addons/${id}`);
   return { ok: true, id, warning: sync.warning };
 }
@@ -193,6 +196,7 @@ export async function reorderAddonsAction(orderedIds: string[]): Promise<AdminAc
   );
   await logAudit({ action: "addon.reorder", entityType: "addon", meta: { order: parsed.data } });
   revalidatePath("/admin/addons");
+  await revalidateWeb({ paths: ["/list-a-program"] });
   return { ok: true, message: "Order saved." };
 }
 
@@ -215,6 +219,7 @@ export async function archiveAddonAction(id: string): Promise<AdminActionResult>
   await archiveStripeProduct(a.stripe_product_id, a.stripe_price_id);
   await logAudit({ action: "addon.archive", entityType: "addon", entityId: id });
   revalidatePath("/admin/addons");
+  await revalidateWeb({ paths: ["/list-a-program"] });
   return { ok: true, message: `${a.name} archived.` };
 }
 
@@ -244,6 +249,7 @@ export async function deleteAddonAction(id: string): Promise<AdminActionResult> 
   await archiveStripeProduct(a.stripe_product_id, a.stripe_price_id);
   await logAudit({ action: "addon.delete", entityType: "addon", entityId: id, meta: { name: a.name } });
   revalidatePath("/admin/addons");
+  await revalidateWeb({ paths: ["/list-a-program"] });
   return { ok: true, message: `${a.name} deleted.` };
 }
 

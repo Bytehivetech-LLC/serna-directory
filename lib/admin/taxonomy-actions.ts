@@ -6,16 +6,19 @@ import { requireAdmin } from "@/lib/auth/guards";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logAudit } from "@/lib/audit/log";
 import { slugify } from "@/lib/utils/slug";
+import { revalidateWeb } from "@/lib/admin/revalidate-web";
 import type { TablesUpdate } from "@/types";
 import type { AdminActionResult } from "./users-actions";
 
 const idSchema = z.string().uuid();
 
 /** Taxonomy changes flow to the public surfaces with no deploy — revalidate them. */
-function revalidatePublic() {
+async function revalidatePublic() {
   revalidatePath("/"); // directory + filter rail
   revalidatePath("/list-a-program"); // listing form
   revalidatePath("/admin/taxonomy");
+  // Bridge to the separate public deployment (no-op on single-deployment dev).
+  await revalidateWeb({ paths: ["/", "/list-a-program"] });
 }
 
 /* =========================================================== categories === */
@@ -66,7 +69,7 @@ export async function createCategoryAction(input: CategoryInput): Promise<AdminA
     };
   }
   await logAudit({ action: "category.create", entityType: "category", entityId: created.id, after: { name: d.name } });
-  revalidatePublic();
+  await revalidatePublic();
   return { ok: true, message: "Category created." };
 }
 
@@ -103,7 +106,7 @@ export async function updateCategoryAction(id: string, input: CategoryInput): Pr
     before: { slug: before.slug },
     after: { slug: d.slug?.trim() || before.slug },
   });
-  revalidatePublic();
+  await revalidatePublic();
   return { ok: true, message: "Category saved." };
 }
 
@@ -114,7 +117,7 @@ export async function reorderCategoriesAction(ids: string[]): Promise<AdminActio
   const admin = createAdminClient();
   await Promise.all(parsed.data.map((id, i) => admin.from("categories").update({ sort_order: i }).eq("id", id)));
   await logAudit({ action: "category.reorder", entityType: "category" });
-  revalidatePublic();
+  await revalidatePublic();
   return { ok: true };
 }
 
@@ -145,7 +148,7 @@ export async function deleteCategoryAction(id: string): Promise<AdminActionResul
     return { ok: false, error: "Something still references this category. Reassign it first." };
   }
   await logAudit({ action: "category.delete", entityType: "category", entityId: id, meta: { name: cat?.name } });
-  revalidatePublic();
+  await revalidatePublic();
   return { ok: true, message: `${cat?.name ?? "Category"} deleted.` };
 }
 
@@ -174,7 +177,7 @@ export async function moveCategoryListingsAction(fromId: string, toId: string): 
     entityId: fromId,
     meta: { to: toId, count },
   });
-  revalidatePublic();
+  await revalidatePublic();
   return { ok: true, message: `Moved ${count} listing${count === 1 ? "" : "s"}.` };
 }
 
@@ -229,7 +232,7 @@ export async function createTagGroupAction(input: TagGroupInput): Promise<AdminA
     return { ok: false, error: error?.code === "23505" ? "That slug already exists." : "Couldn't create the group." };
   }
   await logAudit({ action: "tag_group.create", entityType: "tag_group", entityId: created.id, after: { name: d.name } });
-  revalidatePublic();
+  await revalidatePublic();
   return { ok: true, message: "Group created." };
 }
 
@@ -263,7 +266,7 @@ export async function updateTagGroupAction(id: string, input: TagGroupInput): Pr
     return { ok: false, error: error.code === "23505" ? "That slug already exists." : "Couldn't save the group." };
   }
   await logAudit({ action: "tag_group.update", entityType: "tag_group", entityId: id });
-  revalidatePublic();
+  await revalidatePublic();
   return { ok: true, message: "Group saved." };
 }
 
@@ -282,7 +285,7 @@ export async function toggleGroupFlagAction(
   const { error } = await admin.from("tag_groups").update(patch).eq("id", id);
   if (error) return { ok: false, error: "Couldn't update that." };
   await logAudit({ action: "tag_group.toggle", entityType: "tag_group", entityId: id, meta: { flag, value } });
-  revalidatePublic();
+  await revalidatePublic();
   return { ok: true };
 }
 
@@ -293,7 +296,7 @@ export async function reorderTagGroupsAction(ids: string[]): Promise<AdminAction
   const admin = createAdminClient();
   await Promise.all(parsed.data.map((id, i) => admin.from("tag_groups").update({ sort_order: i }).eq("id", id)));
   await logAudit({ action: "tag_group.reorder", entityType: "tag_group" });
-  revalidatePublic();
+  await revalidatePublic();
   return { ok: true };
 }
 
@@ -322,7 +325,7 @@ export async function deleteTagGroupAction(id: string): Promise<AdminActionResul
   if (error) return { ok: false, error: "Couldn't delete that group." };
 
   await logAudit({ action: "tag_group.delete", entityType: "tag_group", entityId: id, meta: { name: g?.name } });
-  revalidatePublic();
+  await revalidatePublic();
   return { ok: true, message: `${g?.name ?? "Group"} deleted.` };
 }
 
@@ -357,7 +360,7 @@ export async function createTagAction(groupId: string, name: string): Promise<Ad
     return { ok: false, error: error.code === "23505" ? "That tag already exists in this group." : "Couldn't add the tag." };
   }
   await logAudit({ action: "tag.create", entityType: "tag", meta: { group: groupId, name: nameOk.data } });
-  revalidatePublic();
+  await revalidatePublic();
   return { ok: true, message: "Tag added." };
 }
 
@@ -394,7 +397,7 @@ export async function bulkCreateTagsAction(groupId: string, text: string): Promi
   if (error) return { ok: false, error: "Couldn't add those tags." };
 
   await logAudit({ action: "tag.bulk_create", entityType: "tag", meta: { group: groupId, added: rows.length } });
-  revalidatePublic();
+  await revalidatePublic();
   return { ok: true, message: `Added ${rows.length} tag${rows.length === 1 ? "" : "s"}.` };
 }
 
@@ -408,7 +411,7 @@ export async function renameTagAction(id: string, name: string): Promise<AdminAc
   const { error } = await admin.from("tags").update({ name: nameOk.data }).eq("id", id);
   if (error) return { ok: false, error: "Couldn't rename the tag." };
   await logAudit({ action: "tag.rename", entityType: "tag", entityId: id, after: { name: nameOk.data } });
-  revalidatePublic();
+  await revalidatePublic();
   return { ok: true };
 }
 
@@ -419,7 +422,7 @@ export async function toggleTagActiveAction(id: string, value: boolean): Promise
   const { error } = await admin.from("tags").update({ is_active: value }).eq("id", id);
   if (error) return { ok: false, error: "Couldn't update that tag." };
   await logAudit({ action: "tag.toggle", entityType: "tag", entityId: id, meta: { active: value } });
-  revalidatePublic();
+  await revalidatePublic();
   return { ok: true };
 }
 
@@ -430,7 +433,7 @@ export async function reorderTagsAction(ids: string[]): Promise<AdminActionResul
   const admin = createAdminClient();
   await Promise.all(parsed.data.map((id, i) => admin.from("tags").update({ sort_order: i }).eq("id", id)));
   await logAudit({ action: "tag.reorder", entityType: "tag" });
-  revalidatePublic();
+  await revalidatePublic();
   return { ok: true };
 }
 
@@ -444,7 +447,7 @@ export async function deleteTagAction(id: string): Promise<AdminActionResult> {
   const { error } = await admin.from("tags").delete().eq("id", id);
   if (error) return { ok: false, error: "Couldn't delete that tag." };
   await logAudit({ action: "tag.delete", entityType: "tag", entityId: id, meta: { name: t?.name } });
-  revalidatePublic();
+  await revalidatePublic();
   return { ok: true, message: `${t?.name ?? "Tag"} deleted.` };
 }
 
@@ -480,6 +483,6 @@ export async function mergeTagsAction(sourceId: string, targetId: string): Promi
     entityId: targetId,
     meta: { source: sourceId, moved },
   });
-  revalidatePublic();
+  await revalidatePublic();
   return { ok: true, message: `Merged — moved ${moved} listing${moved === 1 ? "" : "s"}.` };
 }
