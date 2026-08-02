@@ -20,7 +20,7 @@ import { Badge } from "@/components/ui/badge";
 import { ListingGallery } from "@/components/listing/listing-gallery";
 import { MessageDialog } from "@/components/listing/message-dialog";
 import { ShareRow } from "@/components/listing/share-row";
-import { ListingMap } from "@/components/listing/listing-map";
+import { LazyListingMap } from "@/components/listing/lazy-listing-map";
 
 const ESA_TEXT: Record<string, string> = {
   yes: "Yes",
@@ -101,7 +101,7 @@ function SocialLink({
     <a
       href={href}
       target="_blank"
-      rel="noopener noreferrer"
+      rel="noopener noreferrer nofollow"
       aria-label={label}
       className="grid h-10 w-10 place-items-center rounded-lg border border-border-strong text-muted-foreground transition-colors hover:border-violet hover:text-indigo"
     >
@@ -208,7 +208,7 @@ export function ListingView({
 
           {listing.lat != null && listing.lng != null ? (
             <SectionCard title="Location">
-              <ListingMap lat={listing.lat} lng={listing.lng} apiKey={mapsKey} />
+              <LazyListingMap lat={listing.lat} lng={listing.lng} apiKey={mapsKey} />
             </SectionCard>
           ) : null}
         </div>
@@ -235,7 +235,7 @@ export function ListingView({
               )}
               {listing.website ? (
                 <Button asChild variant="outline" className="w-full">
-                  <a href={listing.website} target="_blank" rel="noopener noreferrer">
+                  <a href={listing.website} target="_blank" rel="noopener noreferrer nofollow">
                     <ExternalLink className="h-4 w-4" />
                     Visit website
                   </a>

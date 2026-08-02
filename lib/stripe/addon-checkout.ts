@@ -57,7 +57,7 @@ export async function createExtrasCheckoutAction(
 
   const { data: listing } = await supabase
     .from("listings")
-    .select("id, owner_id, slug")
+    .select("id, owner_id, slug, package_id")
     .eq("id", parsed.data.listingId)
     .maybeSingle();
   if (!listing || listing.owner_id !== user.id) {
@@ -67,7 +67,7 @@ export async function createExtrasCheckoutAction(
   const ids = parsed.data.addons.map((a) => a.addonId);
   const { data: addons } = await supabase
     .from("addons")
-    .select("id, name, price_cents, interval, stripe_price_id, is_active, is_public, max_quantity")
+    .select("id, name, price_cents, interval, stripe_price_id, is_active, is_public, max_quantity, package_ids")
     .in("id", ids);
   const byId = new Map((addons ?? []).map((a) => [a.id, a]));
 
@@ -77,6 +77,13 @@ export async function createExtrasCheckoutAction(
     const addon = byId.get(sel.addonId);
     if (!addon || !addon.is_active || !addon.is_public) {
       return { ok: false, error: "One of those add-ons is no longer available." };
+    }
+    // Availability is enforced server-side: an add-on restricted to certain
+    // packages can't be bought for a listing on another package, no matter what
+    // the browser sends.
+    const allowed = Array.isArray(addon.package_ids) ? addon.package_ids : [];
+    if (allowed.length > 0 && (!listing.package_id || !allowed.includes(listing.package_id))) {
+      return { ok: false, error: `${addon.name} isn't available with this listing's plan.` };
     }
     if (addon.price_cents <= 0 || !addon.stripe_price_id) {
       return { ok: false, error: `${addon.name} isn't set up for payment yet.` };

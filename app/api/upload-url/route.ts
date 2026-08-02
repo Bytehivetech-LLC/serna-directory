@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import { checkRateLimit } from "@/lib/utils/rate-limit";
 
 const BUCKET = "listing-images";
 const bodySchema = z.object({ listingId: z.string().uuid() });
@@ -24,6 +25,12 @@ export async function POST(request: NextRequest) {
   } = await supabase.auth.getUser();
   if (!user) {
     return NextResponse.json({ error: "Sign in required." }, { status: 401 });
+  }
+
+  // Cap signed-URL minting per user so a compromised session can't flood storage.
+  const limit = await checkRateLimit(`upload-url:user:${user.id}`, 120, 60 * 60);
+  if (!limit.allowed) {
+    return NextResponse.json({ error: "Too many uploads — try again later." }, { status: 429 });
   }
 
   const { data: listing } = await supabase

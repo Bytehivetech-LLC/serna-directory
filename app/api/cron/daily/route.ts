@@ -1,9 +1,17 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { runAddonMaintenance, runPurge, runDrain } from "@/lib/assets/lifecycle";
+import {
+  runFeaturedExpiry,
+  runListingRenewalReminders,
+  runCategoryCounts,
+  pruneRateLimits,
+  runIntegrationHealth,
+} from "@/lib/cron/daily-tasks";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 /**
  * Daily maintenance (schedule a Vercel Cron at GET /api/cron/daily,
@@ -22,8 +30,23 @@ export async function GET(request: NextRequest) {
   const admin = createAdminClient();
 
   const addons = await runAddonMaintenance(admin);
+  const featured = await runFeaturedExpiry(admin);
+  const reminders = await runListingRenewalReminders(admin);
+  const categories = await runCategoryCounts(admin);
+  const rateLimits = await pruneRateLimits(admin);
+  const health = await runIntegrationHealth(admin);
   const purge = await runPurge(admin);
   const drain = await runDrain(admin);
 
-  return NextResponse.json({ ok: true, ...addons, ...purge, ...drain });
+  return NextResponse.json({
+    ok: true,
+    ...addons,
+    ...featured,
+    ...reminders,
+    ...categories,
+    ...rateLimits,
+    ...health,
+    ...purge,
+    ...drain,
+  });
 }

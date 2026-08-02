@@ -114,8 +114,40 @@ Never read `.env.local` or `keys.txt`.
   **13 — Add-on products**, **14 — Admin categories & tags**,
   **15 — Form builder, settings, menu, branding**,
   **16 — Email studio & asset lifecycle**,
-  **17 — Integrations, secrets & custom scripts**
-- Next phase: **18** (per `docs/04-CLAUDE-PROMPTS.md`)
+  **17 — Integrations, secrets & custom scripts**,
+  **18 — Hardening, SEO & launch**
+- Next phase: **complete** (Phase 18 was the final launch pass)
+- Phase 18 notes:
+  - **SEO**: `app/sitemap.ts` (home/categories/cities/published listings, admin
+    host emits none), `app/robots.ts` (admin → disallow all; web → allow +
+    sitemap), directory `generateMetadata` already sets a canonical, **ItemList
+    JSON-LD** on the directory, LocalBusiness JSON-LD already on listings.
+    `next.config.ts` image `remotePatterns` (Supabase public objects + Google
+    avatars); directory tiles now use **next/image** (`fill` + `sizes`).
+  - **Reliability**: `/api/cron/daily` extended (`lib/cron/daily-tasks.ts`) —
+    featured-expiry, 14-day listing renewal reminders, category-count refresh,
+    rate-limit prune, and **integration health checks** (maps geocode; sendgrid/
+    recaptcha presence) that stamp `last_success_at`/`last_error_*` so a dead key
+    shows in the panel. `vercel.json` schedules daily 08:00 / weekly Mon 09:00
+    (Vercel sends `CRON_SECRET` as the Bearer automatically). Brand-voice
+    `app/error.tsx` + `app/global-error.tsx`; `lib/observability/report.ts`
+    scrubs emails/tokens before logging (Sentry is a one-file wire-up from there).
+    `docs/RUNBOOK.md` covers restore/replay-webhook/reset-admin/rotate-keys/
+    backup/drain-queue.
+  - **Security**: add-on **package availability enforced server-side** in both
+    the extras checkout and the submit flow (an add-on restricted to other
+    packages is refused no matter what the browser sends — the Check-it).
+    reCAPTCHA now has a **review band** (`>=min` pass, `[review,min)` pass +
+    `review:true`, `<review` reject). External listing links get
+    `rel="noopener noreferrer nofollow"`. Rate limits added to **/api/upload-url**
+    (120/hr/user) and **register** (5/15min/IP), joining the existing login/
+    submit/inquiry/password-reset limits. `docs/tests/rls-tests.sql` is the
+    anon + non-owner negative-test script. The raw `SUPABASE_SERVICE_ROLE_KEY`
+    is referenced only in `lib/supabase/admin.ts`.
+  - **Perf/a11y**: map bundle is **lazy-loaded** (`LazyListingMap` via
+    next/dynamic, `ssr:false`); `prefers-reduced-motion` was already a global
+    reset. Consent gating + script-injector guard (Phase 17) unchanged.
+  - **`npm test`** runs the script-injector invariant (never renders on admin).
 - Phase 17 notes:
   - **A — secrets**: `lib/secrets/crypto.ts` AES-256-GCM (server-only, key from
     `SECRETS_ENCRYPTION_KEY` base64/32-byte, format `base64(iv|tag|ct)`, throws at

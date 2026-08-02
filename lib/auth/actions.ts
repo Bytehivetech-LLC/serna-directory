@@ -119,12 +119,19 @@ export async function signUpAction(
   }
   const { fullName, email, password, recaptchaToken, next } = parsed.data;
 
+  const h = await headers();
+  const ip = clientIp(h);
+  const rl = await checkRateLimit(`register:ip:${ip}`, 5, 15 * 60);
+  if (!rl.allowed) {
+    const mins = minutesUntil(rl.resetAt);
+    return { ok: false, error: `Too many sign-up attempts. Try again in about ${mins} minute${mins === 1 ? "" : "s"}.` };
+  }
+
   const captcha = await verifyRecaptcha(recaptchaToken, "register");
   if (!captcha.ok) {
     return { ok: false, error: captcha.reason ?? "Verification failed." };
   }
 
-  const h = await headers();
   const origin = siteOrigin(h);
   const nextPath = safeNext(next, "/dashboard");
 
