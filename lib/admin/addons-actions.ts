@@ -12,6 +12,7 @@ import {
   reconcileStripe,
 } from "@/lib/stripe/sync";
 import { ADDON_EFFECT_VALUES } from "@/lib/addons/effects";
+import { enqueueAssetDeletion, pathFromPublicUrl } from "@/lib/assets/lifecycle";
 import { activePurchaseCount } from "./addons-queries";
 import type { AdminActionResult } from "./users-actions";
 
@@ -295,6 +296,14 @@ export async function setAddonImageAction(
   await requireAdmin();
   if (!z.string().uuid().safeParse(addonId).success) return { ok: false, error: "Invalid add-on." };
   const admin = createAdminClient();
+
+  // Queue the previous card image for removal.
+  const { data: prev } = await admin.from("addons").select("image_url").eq("id", addonId).maybeSingle();
+  const oldPath = pathFromPublicUrl(prev?.image_url ?? null, ASSETS_BUCKET);
+  if (oldPath && oldPath !== path) {
+    await enqueueAssetDeletion(admin, ASSETS_BUCKET, oldPath, "replaced:addon_image");
+  }
+
   const publicUrl = admin.storage.from(ASSETS_BUCKET).getPublicUrl(path).data.publicUrl;
   const { error } = await admin.from("addons").update({ image_url: publicUrl }).eq("id", addonId);
   if (error) return { ok: false, error: "Couldn't save the image." };

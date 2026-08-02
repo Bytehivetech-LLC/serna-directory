@@ -7,6 +7,7 @@ import { requireAdmin, getSession } from "@/lib/auth/guards";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logAudit } from "@/lib/audit/log";
 import { sendTemplateEmail } from "@/lib/email/send";
+import { getSettings } from "@/lib/settings";
 import type { AdminActionResult } from "./users-actions";
 
 const WEB = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
@@ -355,8 +356,52 @@ export async function softDeleteListingAction(id: string): Promise<AdminActionRe
     after: { status: "archived", deleted_at: "set" },
   });
 
+  // Soft delete keeps the photos; tell the owner about the grace window.
+  const settings = await getSettings(["deletion_grace_days"]);
+  const graceDays = typeof settings.deletion_grace_days === "number" ? settings.deletion_grace_days : 30;
+  if (listing.contact_email) {
+    await sendTemplateEmail("listing_deleted", {
+      to: listing.contact_email,
+      userId: listing.owner_id,
+      listingId: id,
+      context: {
+        owner_name: listing.contact_name ?? "there",
+        listing_name: listing.business_name,
+        grace_period: graceDays,
+      },
+    });
+  }
+
   revalidatePublic(listing.slug);
   return { ok: true, message: `${listing.business_name} deleted.` };
+}
+
+/** Hard delete — the cascade + DB trigger enqueue every photo for removal. */
+export async function permanentDeleteListingAction(
+  id: string,
+  confirm: string,
+): Promise<AdminActionResult> {
+  await requireAdmin();
+  if (!idSchema.safeParse(id).success) return { ok: false, error: "Invalid listing." };
+  if (confirm !== "DELETE PERMANENTLY") {
+    return { ok: false, error: 'Type "DELETE PERMANENTLY" to confirm.' };
+  }
+  const admin = createAdminClient();
+  const listing = await loadListing(admin, id);
+  if (!listing) return { ok: false, error: "That listing no longer exists." };
+
+  const { error } = await admin.from("listings").delete().eq("id", id);
+  if (error) return { ok: false, error: "Couldn't permanently delete that listing." };
+
+  await logAudit({
+    action: "listing.purge",
+    entityType: "listing",
+    entityId: id,
+    meta: { name: listing.business_name },
+  });
+  revalidatePublic(listing.slug);
+  revalidatePath("/admin/listings");
+  return { ok: true, message: `${listing.business_name} permanently deleted. Its photos are queued for removal.` };
 }
 
 export async function restoreListingAction(id: string): Promise<AdminActionResult> {

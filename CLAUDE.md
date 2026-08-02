@@ -112,8 +112,59 @@ Never read `.env.local` or `keys.txt`.
   **9 — Owner dashboard**, **10 — Admin shell & users**,
   **11 — Admin listings & moderation**, **12 — Admin packages & Stripe**,
   **13 — Add-on products**, **14 — Admin categories & tags**,
-  **15 — Form builder, settings, menu, branding**
-- Next phase: **16** (per `docs/04-CLAUDE-PROMPTS.md`)
+  **15 — Form builder, settings, menu, branding**,
+  **16 — Email studio & asset lifecycle**
+- Next phase: **17** (per `docs/04-CLAUDE-PROMPTS.md`)
+- Phase 16 notes:
+  - **A — email render**: `lib/email/shell.ts` rebuilt as a **600px table**
+    layout (Outlook-safe, no flex/grid), colours from the live theme (`getTheme`)
+    so rebranding rebrands the emails, logo from `site_settings`, a category
+    **status pill**, violet-soft callout w/ left rule, `color-scheme: light` +
+    `supported-color-schemes`. `render.ts`: **markdown-lite** (`**bold**`,
+    `[links](https://…)`, paragraphs); a **missing variable renders the raw
+    `{{key}}` and warns** (never throws); returns `{found, enabled, locked,
+    generic}`. `send.ts` uses that: optional missing/disabled → skip, locked →
+    always send, and honours `profiles.email_opt_out`. `renderShape` is exported
+    for the editor's live preview.
+  - **B — `/admin/emails`**: list grouped by category (enabled switch — disabled
+    on locked, last sent/edited); editor (`components/admin/email/*`) two-pane
+    with a **variable menu** (click-to-insert, sample on hover), **save-time
+    validation** that refuses an unknown `{{var}}` naming it, realistic-sample
+    preview (desktop/mobile iframe + plain-text), **send test**, **revision
+    history** (`email_template_versions`) + one-click revert, **reset to default**
+    (from the code fallback). `/admin/emails/log` filterable by template/status/
+    recipient with the provider error on failures.
+  - **C — wiring**: `lib/email/admin-alerts.ts` → `email_admin_recipients`
+    setting. `admin_listing_pending` fires on submit; **email preferences** on
+    `/dashboard/profile` (`email_opt_out`, migration `20260803120000`) let owners
+    opt out of expiry nudges / welcome / tips only. Comprehensive **code
+    fallbacks** added for every catalogued key so nothing silently skips before
+    the DB seed exists.
+  - **D — asset lifecycle** (`lib/assets/lifecycle.ts`): `/api/cron/daily`
+    (addon expiry + **PURGE** listings past `deletion_grace_days` — cascade +
+    trigger enqueue — + **DRAIN** the queue 100/batch via the Storage API with
+    attempts/last_error/3-strike fail) and `/api/cron/weekly` (**SWEEP**
+    unreferenced `listing-images` objects older than 24h; stamps `last_sweep_at`).
+    Enqueue-on-replace wired for branding logo/favicon, add-on card image, and a
+    deleted user's avatar. Admin listing editor gets **Delete permanently**
+    (typed `DELETE PERMANENTLY`). Admin dashboard gets a **Storage panel** (image
+    bytes, pending, failed, last sweep).
+  - **E** — `docs/EMAILS.md` catalogues every template, trigger, variables, and
+    recipient.
+  - **Deliberately minimal / deferred** (documented): the sweep covers
+    `listing-images` (site-assets/avatars stay tidy via enqueue-on-replace);
+    several C events (welcome, admin_addon_fulfilment, admin_payment_received,
+    subscription_renewed/canceled, listing_edit_pending/unpublished/blocked/
+    expired) have fallbacks + docs but are only wired where the triggering event
+    already existed — the rest are one `sendTemplateEmail`/`sendAdminAlert` call
+    at each new event site.
+
+### Phase 16 manual setup required
+1. Apply migration `20260803120000_profiles_email_opt_out.sql`.
+2. Schedule the crons (Vercel Cron, `Authorization: Bearer $CRON_SECRET`):
+   daily `GET /api/cron/daily`, weekly `GET /api/cron/weekly`. (The old
+   `/api/cron/addons` still works but `daily` supersedes it.)
+3. Optional settings: `deletion_grace_days` (default 30), `email_admin_recipients`.
 - Phase 15 notes:
   - **A — `/admin/form-builder`**: two-pane (`components/admin/form-builder/*`).
     Left = sections/fields tree with arrow reorder, section dialog, field editor

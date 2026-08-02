@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { AlertTriangle, ArrowRight, ClipboardCheck } from "lucide-react";
 import { getAdminDashboard } from "@/lib/admin/queries";
+import { getStoragePanel, formatBytes } from "@/lib/admin/storage-queries";
 import { formatCurrency, formatRelative } from "@/lib/utils/format";
 import { PageHeading } from "@/components/layout/page-heading";
 import { SectionCard } from "@/components/layout/section-card";
@@ -22,7 +23,7 @@ function AuditVerb({ action }: { action: string }) {
 }
 
 export default async function AdminDashboardPage() {
-  const data = await getAdminDashboard();
+  const [data, storage] = await Promise.all([getAdminDashboard(), getStoragePanel()]);
 
   return (
     <div className="space-y-6">
@@ -120,6 +121,28 @@ export default async function AdminDashboardPage() {
           )}
         </SectionCard>
       </div>
+
+      {/* Storage lifecycle */}
+      <SectionCard title="Storage">
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+          <div>
+            <div className="text-xs text-muted-foreground">Image storage</div>
+            <div className="mt-1 font-display text-xl font-extrabold text-ink">{formatBytes(storage.totalBytes)}</div>
+          </div>
+          <div>
+            <div className="text-xs text-muted-foreground">Pending deletions</div>
+            <div className="mt-1 font-display text-xl font-extrabold text-ink">{storage.pending}</div>
+          </div>
+          <div>
+            <div className="text-xs text-muted-foreground">Failed deletions</div>
+            <div className={`mt-1 font-display text-xl font-extrabold ${storage.failed > 0 ? "text-danger" : "text-ink"}`}>{storage.failed}</div>
+          </div>
+          <div>
+            <div className="text-xs text-muted-foreground">Last sweep</div>
+            <div className="mt-1 text-sm font-semibold text-ink">{storage.lastSweep ? formatRelative(storage.lastSweep) : "never"}</div>
+          </div>
+        </div>
+      </SectionCard>
 
       {/* Stripe webhook failures — a hard signal something isn't being processed. */}
       {data.webhookFailures > 0 ? (

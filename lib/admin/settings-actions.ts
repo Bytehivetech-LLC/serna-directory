@@ -6,6 +6,7 @@ import { requireAdmin, getSession } from "@/lib/auth/guards";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logAudit } from "@/lib/audit/log";
 import { sendEmail } from "@/lib/email/sendgrid";
+import { enqueueAssetDeletion, pathFromPublicUrl } from "@/lib/assets/lifecycle";
 import type { AdminActionResult } from "./users-actions";
 
 const ASSETS_BUCKET = "site-assets";
@@ -70,8 +71,17 @@ export async function setBrandingImageAction(
 ): Promise<AdminActionResult> {
   await requireAdmin();
   const admin = createAdminClient();
+  const settingKey = kind === "logo" ? "logo_url" : "favicon_url";
+
+  // Queue the old asset for removal so replacing a logo doesn't orphan the file.
+  const { data: prev } = await admin.from("site_settings").select("value").eq("key", settingKey).maybeSingle();
+  const oldPath = pathFromPublicUrl(typeof prev?.value === "string" ? prev.value : null, ASSETS_BUCKET);
+  if (oldPath && oldPath !== path) {
+    await enqueueAssetDeletion(admin, ASSETS_BUCKET, oldPath, `replaced:${settingKey}`);
+  }
+
   const publicUrl = admin.storage.from(ASSETS_BUCKET).getPublicUrl(path).data.publicUrl;
-  await writeSettings({ [kind === "logo" ? "logo_url" : "favicon_url"]: publicUrl }, "settings.branding_image");
+  await writeSettings({ [settingKey]: publicUrl }, "settings.branding_image");
   revalidatePath("/", "layout");
   return { ok: true, message: `${kind === "logo" ? "Logo" : "Favicon"} updated.` };
 }

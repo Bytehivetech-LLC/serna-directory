@@ -10,6 +10,7 @@ import { slugify } from "@/lib/utils/slug";
 import { geocodeAddress } from "@/lib/geo/geocode";
 import { getSettings } from "@/lib/settings";
 import { sendTemplateEmail } from "@/lib/email/send";
+import { sendAdminAlert } from "@/lib/email/admin-alerts";
 import { zodErrorToFieldErrors } from "@/lib/forms";
 import { getStripe } from "@/lib/stripe/client";
 import { listingSubmitSchema, type ListingSubmitInput } from "./submit-schema";
@@ -416,6 +417,14 @@ export async function submitListingAction(
       review_days: reviewDays,
     },
   });
+
+  // Alert the team when something lands in the review queue.
+  if (status === "pending_review") {
+    await sendAdminAlert("admin_listing_pending", {
+      owner_name: data.core.contact_name,
+      listing_name: data.core.business_name,
+    });
+  }
 
   // Add-ons: create a checkout to pay for any selected extras.
   const checkoutUrl = await buildAddonCheckout(

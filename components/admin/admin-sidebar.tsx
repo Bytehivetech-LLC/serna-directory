@@ -12,6 +12,7 @@ import {
   Tags,
   FormInput,
   CreditCard,
+  Mail,
   Settings,
   ScrollText,
 } from "lucide-react";
@@ -26,6 +27,7 @@ const ITEMS = [
   { href: "/admin/addons", label: "Add-ons", icon: PackagePlus },
   { href: "/admin/taxonomy", label: "Categories & Tags", icon: Tags },
   { href: "/admin/form-builder", label: "Form builder", icon: FormInput },
+  { href: "/admin/emails", label: "Emails", icon: Mail },
   { href: "/admin/payments", label: "Payments", icon: CreditCard },
   { href: "/admin/settings", label: "Settings", icon: Settings },
   { href: "/admin/audit", label: "Audit log", icon: ScrollText },
