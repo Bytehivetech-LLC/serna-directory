@@ -47,6 +47,10 @@ export type AdminListingsPage = {
   page: number;
   pageSize: number;
   pageCount: number;
+  /** True when the RPC itself failed (e.g. migration not applied) — distinct
+   *  from an honest zero-row result, so the UI can say so instead of showing an
+   *  empty table that looks like "no listings". */
+  loadError: boolean;
 };
 
 export async function getAdminListingsPage(
@@ -75,7 +79,10 @@ export async function getAdminListingsPage(
   });
 
   if (error || !data) {
-    return { rows: [], total: 0, page, pageSize, pageCount: 0 };
+    if (error) {
+      console.error("[admin-listings] admin_list_listings RPC failed:", error.message);
+    }
+    return { rows: [], total: 0, page, pageSize, pageCount: 0, loadError: Boolean(error) };
   }
 
   const coverUrl = (path: string | null) =>
@@ -110,6 +117,7 @@ export async function getAdminListingsPage(
     page,
     pageSize,
     pageCount: Math.max(1, Math.ceil(total / pageSize)),
+    loadError: false,
   };
 }
 
