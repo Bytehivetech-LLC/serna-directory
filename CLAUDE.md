@@ -111,8 +111,34 @@ Never read `.env.local` or `keys.txt`.
   **6 — Listing form**, **7 — Accounts & email**, **8 — Stripe**,
   **9 — Owner dashboard**, **10 — Admin shell & users**,
   **11 — Admin listings & moderation**, **12 — Admin packages & Stripe**,
-  **13 — Add-on products**
-- Next phase: **14** (per `docs/04-CLAUDE-PROMPTS.md`)
+  **13 — Add-on products**, **14 — Admin categories & tags**
+- Next phase: **15** (per `docs/04-CLAUDE-PROMPTS.md`)
+- Phase 14 notes:
+  - `/admin/taxonomy` — three tabs (`components/admin/taxonomy/*`). No new
+    migrations; it drives the existing `categories` / `tag_groups` / `tags`
+    tables, and the public readers already key off the flags:
+    `lib/directory/queries.ts` (`show_in_filter`), `lib/list-form/queries.ts`
+    (`show_in_form`), `lib/listing/queries.ts` (`show_on_listing`). So every
+    save in `lib/admin/taxonomy-actions.ts` calls a `revalidatePublic()` that
+    revalidates `/` and `/list-a-program` — **changes go live with no deploy**
+    (the Check-it: an "Age" group with show-in-filters appears on the directory).
+  - **Categories tab**: table (name, slug, live listing count, active, order),
+    drag + arrow reorder, create/edit dialog (name, slug with an in-use warning,
+    icon, description, the form's ages/rate labels, active). Delete is blocked
+    when listings exist → a **move-listings picker** reassigns them first
+    (`moveCategoryListingsAction`), then delete.
+  - **Tag groups tab**: table with scope (All / a category), selection type, and
+    the three flags as **inline switches** (`toggleGroupFlagAction`); create/edit
+    dialog adds description, sort mode (alphabetical/manual), active. Drag reorder.
+    Delete blocked when the group's tags are in use.
+  - **Tags tab**: group picker, inline add (Enter), **bulk paste** (one per line,
+    dedupes by slug — the "Age → 1,2,3,4 in ten seconds" flow), inline rename
+    (slug kept stable so filter URLs don't break), active switch, arrow reorder,
+    per-tag listing count, **merge** (moves `listing_tags` onto the target,
+    dropping duplicate pairs — `listing_tags` is a composite key, no id column),
+    and delete (confirms with the in-use count).
+  - Counts shown are **live** (computed from `listings`/`listing_tags`), not a
+    denormalised column, so they're always accurate.
 - Phase 13 notes:
   - **Entitlements are the one source of truth.** `listing_entitlements(listing_id)`
     was redefined (migration `20260803110000`) to fold ACTIVE `listing_addons`
