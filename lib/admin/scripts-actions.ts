@@ -6,6 +6,7 @@ import { requireAdmin, getSession } from "@/lib/auth/guards";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logAudit } from "@/lib/audit/log";
 import { guidedProvider, guidedSnippet } from "@/lib/scripts/providers";
+import { describeDbError } from "./db-error";
 import type { AdminActionResult } from "./users-actions";
 
 // Same patterns the DB trigger enforces — reject early with a friendly message.
@@ -113,8 +114,8 @@ export async function createCustomScriptAction(input: unknown): Promise<AdminAct
     updated_by: session?.user?.id ?? null,
   });
   if (error) {
-    // The DB trigger raises on forbidden patterns.
-    return { ok: false, error: error.message.includes("Script rejected") ? "The database rejected this script — it accesses cookies or evaluates code." : "Couldn't save the script." };
+    // The validate_site_script trigger raises a descriptive message — surface it.
+    return { ok: false, error: describeDbError(error, "Couldn't save the script.", "createCustomScript") };
   }
 
   await logAudit({ action: "script.create_custom", entityType: "site_script", meta: { name: d.name } });
@@ -136,7 +137,7 @@ export async function updateCustomScriptAction(id: string, input: unknown): Prom
     external_hosts: d.external_hosts, consent_group: d.consent_group, notes: d.notes ?? null,
     updated_by: session?.user?.id ?? null,
   }).eq("id", id);
-  if (error) return { ok: false, error: error.message.includes("Script rejected") ? "The database rejected this script." : "Couldn't save." };
+  if (error) return { ok: false, error: describeDbError(error, "Couldn't save.", "updateCustomScript") };
   await logAudit({ action: "script.update", entityType: "site_script", entityId: id });
   await afterChange(admin);
   return { ok: true, message: "Saved." };
@@ -147,7 +148,7 @@ export async function toggleScriptAction(id: string, active: boolean): Promise<A
   if (!z.string().uuid().safeParse(id).success) return { ok: false, error: "Invalid script." };
   const admin = createAdminClient();
   const { error } = await admin.from("site_scripts").update({ is_active: active }).eq("id", id);
-  if (error) return { ok: false, error: "Couldn't update that." };
+  if (error) return { ok: false, error: describeDbError(error, "Couldn't update that.", "toggleScript") };
   await logAudit({ action: "script.toggle", entityType: "site_script", entityId: id, meta: { active } });
   await afterChange(admin);
   return { ok: true, message: active ? "Script activated." : "Script deactivated." };
@@ -158,7 +159,7 @@ export async function deleteScriptAction(id: string): Promise<AdminActionResult>
   if (!z.string().uuid().safeParse(id).success) return { ok: false, error: "Invalid script." };
   const admin = createAdminClient();
   const { error } = await admin.from("site_scripts").delete().eq("id", id);
-  if (error) return { ok: false, error: "Couldn't delete that." };
+  if (error) return { ok: false, error: describeDbError(error, "Couldn't delete that.", "deleteScript") };
   await logAudit({ action: "script.delete", entityType: "site_script", entityId: id });
   await afterChange(admin);
   return { ok: true, message: "Script deleted." };
