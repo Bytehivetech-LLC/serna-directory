@@ -3,7 +3,14 @@
 import { useEffect } from "react";
 import { reportError } from "@/lib/observability/report";
 
-/** Catches errors in the root layout itself — must render its own <html>/<body>. */
+/**
+ * Catches errors in the root layout itself — must render its own <html>/<body>.
+ *
+ * Colours here are INTENTIONALLY hardcoded (not theme tokens). This renders when
+ * the app has already failed — the theme <style> block from the root layout may
+ * never have been injected — so it cannot depend on the CSS variables. Keep the
+ * literals in sync with the brand defaults by eye; do not "tokenise" them.
+ */
 export default function GlobalError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   useEffect(() => {
     reportError(error, { digest: error.digest, scope: "global" });

@@ -86,16 +86,19 @@ exception when insufficient_privilege then
   raise notice 'PASS: non-owner update denied';
 end $$;
 
--- b) escalate own role to admin → denied / 0 rows
+-- b) escalate own role to admin → guard_profile_privileges reverts the column.
+--    RLS lets a user update their OWN profile row (name/phone), so the UPDATE
+--    may match a row; the trigger silently reverts role/is_verified/is_suspended.
+--    The correct assertion is therefore on the VALUE, not the row count.
 do $$
-declare n int;
+declare r text;
 begin
   update public.profiles set role = 'admin' where id = :'other_user';
-  get diagnostics n = row_count;
-  if n > 0 then raise exception 'FAIL: user escalated own role to admin'; end if;
-  raise notice 'PASS: user cannot self-promote to admin';
+  select role into r from public.profiles where id = :'other_user';
+  if r = 'admin' then raise exception 'FAIL: user escalated own role to admin'; end if;
+  raise notice 'PASS: user cannot self-promote to admin (role stayed %)', r;
 exception when insufficient_privilege then
-  raise notice 'PASS: role escalation denied';
+  raise notice 'PASS: role escalation denied at RLS';
 end $$;
 
 -- c) publish own listing directly → status change to published must be blocked

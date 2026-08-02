@@ -6,7 +6,7 @@ import { initialFormState } from "@/lib/forms";
 import { executeRecaptcha } from "@/lib/security/recaptcha-client";
 import { FormField } from "./form-field";
 import { SubmitButton } from "./submit-button";
-import { PasswordStrengthMeter } from "./password-strength-meter";
+import { PasswordChecklist } from "./password-checklist";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -65,7 +65,6 @@ export function RegisterForm({ next }: { next?: string }) {
         label="Password"
         name="password"
         error={state.fieldErrors?.password}
-        hint="At least 8 characters."
         required
       >
         <Input
@@ -79,7 +78,7 @@ export function RegisterForm({ next }: { next?: string }) {
           aria-invalid={state.fieldErrors?.password ? true : undefined}
         />
       </FormField>
-      {password ? <PasswordStrengthMeter password={password} /> : null}
+      <PasswordChecklist password={password} />
 
       <div className="flex items-start gap-2.5 pt-1">
         <Checkbox id="acceptTerms" name="acceptTerms" className="mt-0.5" />

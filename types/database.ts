@@ -1137,18 +1137,30 @@ export type Database = {
           type: string;
           payload: Json | null;
           processed_at: string;
+          status: string;
+          attempts: number;
+          last_error: string | null;
+          updated_at: string;
         };
         Insert: {
           id?: string;
           type?: string;
           payload?: Json | null;
           processed_at?: string;
+          status?: string;
+          attempts?: number;
+          last_error?: string | null;
+          updated_at?: string;
         };
         Update: {
           id?: string;
           type?: string;
           payload?: Json | null;
           processed_at?: string;
+          status?: string;
+          attempts?: number;
+          last_error?: string | null;
+          updated_at?: string;
         };
         Relationships: [];
       };
@@ -1308,6 +1320,7 @@ export type Database = {
           id: string;
           email: string;
           full_name: string | null;
+          avatar_url: string | null;
           role: Database["public"]["Enums"]["user_role"];
           is_verified: boolean;
           is_suspended: boolean;

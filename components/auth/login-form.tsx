@@ -4,6 +4,7 @@ import { useActionState } from "react";
 import Link from "next/link";
 import { signInAction } from "@/lib/auth/actions";
 import { initialFormState } from "@/lib/forms";
+import { executeRecaptcha } from "@/lib/security/recaptcha-client";
 import { FormField } from "./form-field";
 import { SubmitButton } from "./submit-button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -14,8 +15,16 @@ export function LoginForm({ next }: { next?: string }) {
     initialFormState,
   );
 
+  async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    const token = await executeRecaptcha("login");
+    if (token) formData.set("recaptchaToken", token);
+    formAction(formData);
+  }
+
   return (
-    <form action={formAction} className="space-y-4" noValidate>
+    <form onSubmit={onSubmit} className="space-y-4" noValidate>
       {next ? <input type="hidden" name="next" value={next} /> : null}
 
       {state.error ? (

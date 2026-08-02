@@ -21,7 +21,7 @@ function one(v: string | string[] | undefined): string | undefined {
 }
 
 const STATUS_OPTIONS = [
-  { value: "", label: "Any status" },
+  { value: "", label: "All statuses" },
   { value: "pending_review", label: "Pending review" },
   { value: "published", label: "Live" },
   { value: "draft", label: "Draft" },
@@ -30,6 +30,10 @@ const STATUS_OPTIONS = [
   { value: "archived", label: "Archived" },
   { value: "deleted", label: "Deleted" },
 ];
+
+const STATUS_LABEL = Object.fromEntries(
+  STATUS_OPTIONS.filter((o) => o.value).map((o) => [o.value, o.label]),
+);
 
 export default async function AdminListingsPage({
   searchParams,
@@ -95,6 +99,35 @@ export default async function AdminListingsPage({
   };
   const first = result.total === 0 ? 0 : (result.page - 1) * result.pageSize + 1;
   const last = Math.min(result.page * result.pageSize, result.total);
+
+  // Active filters as removable chips (search is shown in its own input).
+  const catName = lookups.categories.find((c) => c.id === categoryId)?.name;
+  const pkgName = lookups.packages.find((p) => p.id === packageId)?.name;
+  const chips: { key: string; label: string }[] = [];
+  if (status) chips.push({ key: "status", label: STATUS_LABEL[status] ?? status });
+  if (categoryId) chips.push({ key: "category", label: catName ?? "Category" });
+  if (packageId) chips.push({ key: "package", label: pkgName ?? "Package" });
+  if (esa) chips.push({ key: "esa", label: `ESA: ${esa}` });
+  if (featured) chips.push({ key: "featured", label: featured === "yes" ? "Featured" : "Not featured" });
+  if (city) chips.push({ key: "city", label: `City: ${city}` });
+  if (from) chips.push({ key: "from", label: `From ${from}` });
+  if (to) chips.push({ key: "to", label: `To ${to}` });
+  if (q) chips.push({ key: "q", label: `“${q}”` });
+
+  const chipHrefWithout = (key: string) => {
+    const next = new URLSearchParams(params);
+    next.delete(key);
+    next.delete("page");
+    const qs = next.toString();
+    return qs ? `/admin/listings?${qs}` : "/admin/listings";
+  };
+
+  const filterNote = status
+    ? ` — filtered by ${STATUS_LABEL[status] ?? status}`
+    : chips.length
+      ? " — filtered"
+      : "";
+  const isDeletedView = status === "deleted";
 
   return (
     <div className="space-y-6">
@@ -195,12 +228,41 @@ export default async function AdminListingsPage({
         </div>
       </form>
 
-      {result.rows.length ? (
+      {chips.length ? (
+        <div className="flex flex-wrap items-center gap-2">
+          {chips.map((c) => (
+            <Link
+              key={c.key}
+              href={chipHrefWithout(c.key)}
+              className="inline-flex items-center gap-1.5 rounded-full border border-border-strong bg-card px-3 py-1 text-xs font-semibold text-ink no-underline hover:border-violet hover:text-indigo"
+            >
+              {c.label}
+              <span aria-hidden className="text-faint">✕</span>
+              <span className="sr-only">Remove filter</span>
+            </Link>
+          ))}
+          <Link
+            href="/admin/listings"
+            className="text-xs font-semibold text-muted-foreground underline-offset-2 hover:underline"
+          >
+            Clear all
+          </Link>
+        </div>
+      ) : null}
+
+      {result.loadError ? (
+        <EmptyState
+          icon={LayoutList}
+          title="Couldn't load listings"
+          description="The admin listings query failed. This usually means the admin_list_listings database migration hasn't been applied to this environment yet. Check the server logs, apply the migration, then reload."
+        />
+      ) : result.rows.length ? (
         <>
-          <ListingsTable rows={result.rows} params={params} />
+          <ListingsTable rows={result.rows} params={params} status={status} />
           <div className="flex items-center justify-between gap-4 text-sm">
             <span className="text-muted-foreground">
-              Showing {first}–{last} of {result.total}
+              Showing {first}–{last} of {result.total} {result.total === 1 ? "listing" : "listings"}
+              {filterNote}
             </span>
             <div className="flex gap-2">
               {result.page <= 1 ? (
@@ -224,11 +286,17 @@ export default async function AdminListingsPage({
             </div>
           </div>
         </>
-      ) : (
+      ) : chips.length ? (
         <EmptyState
           icon={LayoutList}
           title="No listings match"
-          description="Try clearing a filter or searching a different term."
+          description="Nothing matches these filters. Remove a chip above, or clear all, to see more."
+        />
+      ) : (
+        <EmptyState
+          icon={LayoutList}
+          title="No listings yet"
+          description="When someone submits a program it lands here — draft, pending, or live. Nothing has been created so far."
         />
       )}
     </div>

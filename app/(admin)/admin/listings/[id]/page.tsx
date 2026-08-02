@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { siteUrl } from "@/lib/site-url";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { z } from "zod";
@@ -17,7 +18,7 @@ import { AdminListingEditor } from "@/components/admin/admin-listing-editor";
 
 export const metadata: Metadata = { title: "Edit listing" };
 
-const WEB = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+const WEB = siteUrl();
 
 const STATUS_LABEL: Record<string, string> = {
   draft: "Draft",

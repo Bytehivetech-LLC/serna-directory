@@ -6,10 +6,10 @@ import type { StripeStatus } from "@/lib/stripe/status";
 export function StripeStatusBanner({ status }: { status: StripeStatus }) {
   if (!status.configured) {
     return (
-      <div className="flex flex-wrap items-center gap-3 rounded-xl border border-warm-border bg-warm px-5 py-3.5 text-sm text-[#7a5a1e]">
+      <div className="flex flex-wrap items-center gap-3 rounded-xl border border-warm-border bg-warm px-5 py-3.5 text-sm text-warn-ink">
         <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden />
         <span>
-          <b className="text-[#5c430f]">Stripe isn&apos;t configured.</b> Set{" "}
+          <b className="text-warn-strong">Stripe isn&apos;t configured.</b> Set{" "}
           <code>STRIPE_SECRET_KEY</code> to create products and prices from here.
         </span>
       </div>
@@ -43,17 +43,17 @@ export function StripeStatusBanner({ status }: { status: StripeStatus }) {
         {webhookOk ? (
           <CheckCircle2 className="h-4 w-4 text-good" aria-hidden />
         ) : (
-          <AlertTriangle className="h-4 w-4 text-[#b4791e]" aria-hidden />
+          <AlertTriangle className="h-4 w-4 text-warn-icon" aria-hidden />
         )}
         <span className="text-muted-foreground">
           Webhook:{" "}
           {status.webhook.lastEventAt ? (
-            <span className={webhookOk ? "text-ink" : "text-[#7a5a1e]"}>
+            <span className={webhookOk ? "text-ink" : "text-warn-ink"}>
               last event {formatRelative(status.webhook.lastEventAt)}
               {status.webhook.lastEventType ? ` (${status.webhook.lastEventType})` : ""}
             </span>
           ) : (
-            <span className="text-[#7a5a1e]">no events received yet</span>
+            <span className="text-warn-ink">no events received yet</span>
           )}
         </span>
       </span>

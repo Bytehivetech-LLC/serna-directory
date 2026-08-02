@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { socialLinksSchema } from "@/lib/validation/schemas";
 
 const optional = (max: number) =>
   z.preprocess(
@@ -42,6 +43,7 @@ export const listingSubmitSchema = z.object({
   categorySlug: z.string().min(1, "Pick a category."),
   packageSlug: z.string().min(1),
   core: coreSchema,
+  social: socialLinksSchema.optional(),
   showPhone: z.boolean().default(true),
   tagSlugs: z.array(z.string()).max(80).default([]),
   geo: z

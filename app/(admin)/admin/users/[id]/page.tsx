@@ -7,6 +7,7 @@ import { getUserDetail } from "@/lib/admin/queries";
 import { getSession } from "@/lib/auth/guards";
 import { formatCurrency, formatDate, formatDateTime } from "@/lib/utils/format";
 import { PageHeading } from "@/components/layout/page-heading";
+import { AvatarBadge } from "@/components/ui/avatar-badge";
 import { SectionCard } from "@/components/layout/section-card";
 import { Badge } from "@/components/ui/badge";
 import { UserAdminPanel } from "@/components/admin/user-admin-panel";
@@ -46,11 +47,10 @@ export default async function AdminUserDetailPage({
         >
           <ArrowLeft className="h-4 w-4" /> Back to users
         </Link>
-        <PageHeading
-          className="mt-3"
-          title={profile.full_name || profile.email}
-          lede={profile.email}
-        />
+        <div className="mt-3 flex items-center gap-3">
+          <AvatarBadge url={profile.avatar_url} name={profile.full_name || profile.email} size={48} />
+          <PageHeading title={profile.full_name || profile.email} lede={profile.email} />
+        </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-2">

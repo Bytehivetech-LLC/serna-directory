@@ -44,6 +44,19 @@ export default async function WebLayout({
 
   const consentEnabled = settings.consent_banner_enabled === true;
 
+  // Avatar for the header (when signed in).
+  let avatarUrl: string | undefined;
+  let userName: string | undefined;
+  if (session?.user) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("avatar_url, full_name")
+      .eq("id", session.user.id)
+      .maybeSingle();
+    avatarUrl = profile?.avatar_url ?? undefined;
+    userName = profile?.full_name ?? session.user.email ?? undefined;
+  }
+
   return (
     <div className="flex min-h-screen flex-col bg-background">
       {/* Admin-configured tracking — PUBLIC layout only (self-guards on APP_TARGET). */}
@@ -51,6 +64,8 @@ export default async function WebLayout({
       <ScriptInjector slot="body_start" />
       <SiteHeader
         authed={Boolean(session?.user)}
+        avatarUrl={avatarUrl}
+        userName={userName}
         brandName={brandName}
         logoUrl={logoUrl}
         markLetter={markLetter}
@@ -60,7 +75,9 @@ export default async function WebLayout({
       <SiteFooter
         brandName={brandName}
         markLetter={markLetter}
+        logoUrl={logoUrl}
         footerText={footerText}
+        consentEnabled={consentEnabled}
         nav={footerNav.length ? footerNav : undefined}
       />
       <ScriptInjector slot="body_end" />

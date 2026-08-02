@@ -101,11 +101,34 @@ function Guided({ run, pending }: { run: (fn: () => Promise<{ ok: boolean; messa
 
 const ACK_KEY = "serna-custom-script-ack";
 
+// Same rules the validate_site_script trigger enforces — check in the browser
+// BEFORE submitting so the admin sees which rule tripped and where.
+const CODE_RULES: { label: string; re: RegExp }[] = [
+  { label: "document.cookie", re: /document\s*\.\s*cookie/i },
+  { label: "localStorage", re: /localStorage/i },
+  { label: "sessionStorage", re: /sessionStorage/i },
+  { label: "eval(", re: /\beval\s*\(/i },
+  { label: "new Function(", re: /\bFunction\s*\(/i },
+  { label: "a call to our own /api/", re: /['"`]\/api\//i },
+];
+
+function checkScript(code: string): { line: number; rule: string } | null {
+  const lines = code.split("\n");
+  for (let i = 0; i < lines.length; i++) {
+    for (const r of CODE_RULES) {
+      if (r.re.test(lines[i]!)) return { line: i + 1, rule: r.label };
+    }
+  }
+  return null;
+}
+
 function Custom({ scripts, run, pending }: { scripts: ScriptRow[]; run: (fn: () => Promise<{ ok: boolean; message?: string; error?: string }>, after?: () => void) => void; pending: boolean }) {
   const [open, setOpen] = useState(false);
   const [ackOpen, setAckOpen] = useState(false);
   const [ackText, setAckText] = useState("");
   const [f, setF] = useState({ name: "", code: "", placement: "head", applies_to: "all", consent_group: "analytics", external_hosts: "", notes: "" });
+  const [codeError, setCodeError] = useState<string | null>(null);
+  const [checkOk, setCheckOk] = useState(false);
 
   function startNew() {
     const acked = typeof window !== "undefined" && localStorage.getItem(ACK_KEY) === "1";
@@ -113,11 +136,24 @@ function Custom({ scripts, run, pending }: { scripts: ScriptRow[]; run: (fn: () 
     else setAckOpen(true);
   }
 
+  function runCheck(): boolean {
+    setCheckOk(false);
+    const bad = checkScript(f.code);
+    if (bad) {
+      setCodeError(`Line ${bad.line}: ${bad.rule} isn't allowed — the site blocks scripts that touch cookies/storage, evaluate code, or call our own API.`);
+      return false;
+    }
+    setCodeError(null);
+    setCheckOk(true);
+    return true;
+  }
+
   function submit() {
+    if (!runCheck()) return;
     run(() => createCustomScriptAction({
       ...f,
       external_hosts: f.external_hosts.split(/[\s,]+/).map((s) => s.trim()).filter(Boolean),
-    }), () => { setOpen(false); setF({ name: "", code: "", placement: "head", applies_to: "all", consent_group: "analytics", external_hosts: "", notes: "" }); });
+    }), () => { setOpen(false); setCheckOk(false); setCodeError(null); setF({ name: "", code: "", placement: "head", applies_to: "all", consent_group: "analytics", external_hosts: "", notes: "" }); });
   }
 
   return (
@@ -164,11 +200,20 @@ function Custom({ scripts, run, pending }: { scripts: ScriptRow[]; run: (fn: () 
             </div>
             <div className="space-y-1.5"><Label>Applies to (path prefix or “all”)</Label><Input value={f.applies_to} onChange={(e) => setF((p) => ({ ...p, applies_to: e.target.value }))} placeholder="all, /, /listing" /></div>
             <div className="space-y-1.5"><Label>External hosts it contacts (space/comma separated)</Label><Input value={f.external_hosts} onChange={(e) => setF((p) => ({ ...p, external_hosts: e.target.value }))} placeholder="https://example.com" /></div>
-            <div className="space-y-1.5"><Label>Code</Label><Textarea rows={7} value={f.code} onChange={(e) => setF((p) => ({ ...p, code: e.target.value }))} className="font-mono text-xs" /></div>
+            <div className="space-y-1.5">
+              <Label>Code</Label>
+              <Textarea rows={7} value={f.code} onChange={(e) => { setF((p) => ({ ...p, code: e.target.value })); setCodeError(null); setCheckOk(false); }} className="font-mono text-xs" />
+              {codeError ? (
+                <p role="alert" className="text-xs font-medium text-danger">{codeError}</p>
+              ) : checkOk ? (
+                <p className="text-xs font-medium text-good">Looks good — no blocked patterns.</p>
+              ) : null}
+            </div>
             <div className="space-y-1.5"><Label>Notes</Label><Input value={f.notes} onChange={(e) => setF((p) => ({ ...p, notes: e.target.value }))} /></div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+            <Button variant="outline" disabled={!f.code.trim()} onClick={runCheck}>Check script</Button>
             <Button disabled={pending || !f.name.trim() || !f.code.trim()} onClick={submit}>Save (inactive)</Button>
           </DialogFooter>
         </DialogContent>

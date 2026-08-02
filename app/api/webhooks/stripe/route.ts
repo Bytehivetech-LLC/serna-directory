@@ -1,8 +1,10 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { siteUrl } from "@/lib/site-url";
 import type Stripe from "stripe";
 import { getStripe } from "@/lib/stripe/client";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendTemplateEmail } from "@/lib/email/send";
+import { sendAdminAlert } from "@/lib/email/admin-alerts";
 import { formatCurrency } from "@/lib/utils/format";
 import type { Json } from "@/types/database";
 
@@ -96,26 +98,73 @@ export async function POST(request: NextRequest) {
   }
 
   const admin = createAdminClient();
+  const MAX_ATTEMPTS = 5;
 
-  // Idempotency guard: claim the event id first. A conflict means we've already
-  // seen it → acknowledge and stop.
+  // Idempotency + retry lifecycle. Claim the event as 'processing'. On a
+  // duplicate, the previous outcome decides what happens:
+  //   done       -> already handled; acknowledge and stop.
+  //   processing -> a previous attempt died mid-flight; reprocess.
+  //   failed     -> a previous attempt threw; reprocess (Stripe is retrying).
+  // The claim only becomes permanent ('done') AFTER the handler succeeds, so a
+  // transient error can never strand a paid event.
+  const nowIso = new Date().toISOString();
+  let attempts = 1;
+
   const { error: claimError } = await admin.from("stripe_events").insert({
     id: event.id,
     type: event.type,
     payload: event as unknown as Json,
-    processed_at: new Date().toISOString(),
+    processed_at: nowIso,
+    status: "processing",
+    attempts: 1,
+    updated_at: nowIso,
   });
+
   if (claimError) {
     if (claimError.code === "23505") {
-      return NextResponse.json({ received: true, duplicate: true });
+      const { data: existing } = await admin
+        .from("stripe_events")
+        .select("status, attempts")
+        .eq("id", event.id)
+        .maybeSingle();
+
+      if (!existing || existing.status === "done") {
+        return NextResponse.json({ received: true, duplicate: true });
+      }
+
+      attempts = (existing.attempts ?? 0) + 1;
+
+      // Runaway guard: a permanently broken event must not loop forever.
+      // Surface it to a human and acknowledge so Stripe stops retrying.
+      if (attempts > MAX_ATTEMPTS) {
+        await admin
+          .from("stripe_events")
+          .update({ attempts, status: "failed", updated_at: new Date().toISOString() })
+          .eq("id", event.id);
+        await recordWebhookFailure(admin, request, {
+          eventId: event.id,
+          eventType: event.type,
+          error: `Gave up after ${MAX_ATTEMPTS} attempts; left status=failed.`,
+        });
+        await sendAdminAlert("admin_system_alert", {
+          message: `Stripe event ${event.id} (${event.type}) failed ${attempts} times and was abandoned. Review it at /admin/stripe-events and replay it from the Stripe dashboard once the cause is fixed.`,
+        });
+        return NextResponse.json({ received: true, abandoned: true });
+      }
+
+      await admin
+        .from("stripe_events")
+        .update({ status: "processing", attempts, last_error: null, updated_at: new Date().toISOString() })
+        .eq("id", event.id);
+    } else {
+      // Couldn't even record it — ask Stripe to retry.
+      await recordWebhookFailure(admin, request, {
+        eventId: event.id,
+        eventType: event.type,
+        error: `Could not record event: ${claimError.message}`,
+      });
+      return NextResponse.json({ error: "Could not record event" }, { status: 500 });
     }
-    // Couldn't record it — ask Stripe to retry.
-    await recordWebhookFailure(admin, request, {
-      eventId: event.id,
-      eventType: event.type,
-      error: `Could not record event: ${claimError.message}`,
-    });
-    return NextResponse.json({ error: "Could not record event" }, { status: 500 });
   }
 
   try {
@@ -144,6 +193,12 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     console.error(`[stripe] handler failed for ${event.type}:`, message);
+    // Release the claim as 'failed' so Stripe's retry reprocesses it (never
+    // store the raw payload in last_error).
+    await admin
+      .from("stripe_events")
+      .update({ status: "failed", last_error: message.slice(0, 500), attempts, updated_at: new Date().toISOString() })
+      .eq("id", event.id);
     await recordWebhookFailure(admin, request, {
       eventId: event.id,
       eventType: event.type,
@@ -151,6 +206,12 @@ export async function POST(request: NextRequest) {
     });
     return NextResponse.json({ error: "Handler failed" }, { status: 500 });
   }
+
+  // Success — now the claim becomes permanent.
+  await admin
+    .from("stripe_events")
+    .update({ status: "done", last_error: null, updated_at: new Date().toISOString() })
+    .eq("id", event.id);
 
   return NextResponse.json({ received: true });
 }
@@ -349,7 +410,7 @@ async function handleCheckoutCompleted(
     .eq("id", listingId)
     .maybeSingle();
   if (listing?.contact_email) {
-    const origin = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+    const origin = siteUrl();
     await sendTemplateEmail("payment_receipt", {
       to: listing.contact_email,
       userId,

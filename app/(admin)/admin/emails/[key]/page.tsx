@@ -36,7 +36,7 @@ export default async function EmailEditPage({
           lede={template.description ?? undefined}
         />
         {template.is_locked ? (
-          <p className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-warm-border bg-warm px-3 py-1.5 text-xs text-[#7a5a1e]">
+          <p className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-warm-border bg-warm px-3 py-1.5 text-xs text-warn-ink">
             <Lock className="h-3.5 w-3.5" /> Locked on — you can reword it, but it cannot be turned off (it carries essential account info).
           </p>
         ) : null}

@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth/guards";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logAudit } from "@/lib/audit/log";
+import { revalidateWeb } from "@/lib/admin/revalidate-web";
 import { slugify } from "@/lib/utils/slug";
 import {
   syncStripeProductPrice,
@@ -134,6 +135,7 @@ export async function createPackageAction(
   });
 
   revalidatePath("/admin/packages");
+  await revalidateWeb({ paths: ["/list-a-program"] });
   return { ok: true, id: created.id, warning: sync.warning };
 }
 
@@ -222,6 +224,7 @@ export async function updatePackageAction(
   });
 
   revalidatePath("/admin/packages");
+  await revalidateWeb({ paths: ["/list-a-program"] });
   revalidatePath(`/admin/packages/${id}`);
   return { ok: true, id, warning: sync.warning };
 }
@@ -246,6 +249,7 @@ export async function reorderPackagesAction(
     meta: { order: parsed.data },
   });
   revalidatePath("/admin/packages");
+  await revalidateWeb({ paths: ["/list-a-program"] });
   return { ok: true, message: "Order saved." };
 }
 
@@ -271,6 +275,7 @@ export async function archivePackageAction(id: string): Promise<AdminActionResul
 
   await logAudit({ action: "package.archive", entityType: "package", entityId: id });
   revalidatePath("/admin/packages");
+  await revalidateWeb({ paths: ["/list-a-program"] });
   return { ok: true, message: `${pkg.name} archived.` };
 }
 
@@ -313,6 +318,7 @@ export async function deletePackageAction(id: string): Promise<AdminActionResult
     meta: { name: pkg.name },
   });
   revalidatePath("/admin/packages");
+  await revalidateWeb({ paths: ["/list-a-program"] });
   return { ok: true, message: `${pkg.name} deleted.` };
 }
 

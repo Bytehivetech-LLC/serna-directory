@@ -7,6 +7,7 @@ import { EmptyState } from "@/components/layout/empty-state";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { UsersTable } from "@/components/admin/users-table";
+import { AddUserDialog } from "@/components/admin/add-user-dialog";
 
 export const metadata: Metadata = { title: "Users" };
 
@@ -73,6 +74,7 @@ export default async function AdminUsersPage({
       <PageHeading
         title="Users"
         lede={`${result.total} ${result.total === 1 ? "account" : "accounts"}.`}
+        actions={<AddUserDialog />}
       />
 
       {/* Filters — a plain GET form: search is server-side and shareable. */}

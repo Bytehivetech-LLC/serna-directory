@@ -1,0 +1,25 @@
+-- 6.1 — the directory should serve the 30KB cover THUMBNAIL, not the ~250KB
+-- original. lib/directory/queries.ts already maps the cover's storage_path to
+-- its thumb_path for the current page, so the busiest page serves thumbs today.
+--
+-- The proper fix is to have search_listings() return the thumbnail directly.
+-- That function was created out-of-band (it isn't in this repo's migrations —
+-- see docs/02-DATABASE-SCHEMA.sql), so this file documents the one-line change
+-- rather than blindly CREATE OR REPLACE-ing a body we don't have here:
+--
+--   In the cover sub-select inside public.search_listings(...), change:
+--       select li.storage_path
+--       from public.listing_images li
+--       where li.listing_id = l.id
+--       order by li.is_cover desc, li.sort_order asc
+--       limit 1
+--   to:
+--       select coalesce(li.thumb_path, li.storage_path)
+--       ...
+--
+-- Apply that edit to the live function definition, then the query-layer lookup
+-- in lib/directory/queries.ts becomes a redundant (but harmless) safety net.
+
+-- No-op: intentionally documents the change above without replacing an unknown
+-- function body.
+select 1;

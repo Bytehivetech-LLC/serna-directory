@@ -5,7 +5,7 @@ import { updatePasswordAction } from "@/lib/auth/actions";
 import { initialFormState } from "@/lib/forms";
 import { FormField } from "./form-field";
 import { SubmitButton } from "./submit-button";
-import { PasswordStrengthMeter } from "./password-strength-meter";
+import { PasswordChecklist } from "./password-checklist";
 import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
@@ -28,7 +28,6 @@ export function ResetPasswordForm() {
         label="New password"
         name="password"
         error={state.fieldErrors?.password}
-        hint="At least 8 characters."
         required
       >
         <Input
@@ -41,7 +40,7 @@ export function ResetPasswordForm() {
           onChange={(e) => setPassword(e.target.value)}
         />
       </FormField>
-      {password ? <PasswordStrengthMeter password={password} /> : null}
+      <PasswordChecklist password={password} />
 
       <FormField
         label="Confirm new password"

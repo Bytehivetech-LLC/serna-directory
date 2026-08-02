@@ -60,7 +60,7 @@ export function FulfilmentRow({
               {item.addonName}
             </span>
             {ageing ? (
-              <span className="inline-flex items-center gap-1 rounded-md bg-warm px-2 py-0.5 text-xs font-bold text-[#7a5a1e]">
+              <span className="inline-flex items-center gap-1 rounded-md bg-warm px-2 py-0.5 text-xs font-bold text-warn-ink">
                 <AlertTriangle className="h-3 w-3" /> {item.daysWaiting}d waiting
               </span>
             ) : (

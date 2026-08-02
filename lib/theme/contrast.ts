@@ -49,6 +49,9 @@ export const CONTRAST_PAIRS: PairDef[] = [
   { label: "White on violet", fg: "white", bg: "violet", min: 3, blocking: true },
   { label: "Good on good-soft", fg: "good", bg: "goodSoft", min: 3, blocking: true },
   { label: "Danger on danger-soft", fg: "danger", bg: "dangerSoft", min: 3, blocking: true },
+  { label: "Warn text on warm", fg: "warnInk", bg: "warm", min: 4.5, blocking: true },
+  { label: "Warn strong on warm", fg: "warnStrong", bg: "warm", min: 4.5, blocking: true },
+  { label: "Warn icon on warm", fg: "warnIcon", bg: "warm", min: 3, blocking: true },
 ];
 
 export type ContrastResult = {

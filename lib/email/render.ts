@@ -1,4 +1,5 @@
 import "server-only";
+import { siteUrl as siteUrlFromEnv } from "@/lib/site-url";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getSettings } from "@/lib/settings";
 import { getTheme } from "@/lib/theme/get-theme";
@@ -135,7 +136,7 @@ export async function renderShape(
   const ctx: EmailContext = {
     site_name: (settings.site_name as string) ?? "Serna Educational Services",
     support_email: (settings.support_email as string) ?? "Info@SernaEducationalServices.com",
-    site_url: process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000",
+    site_url: siteUrlFromEnv(),
     ...context,
   };
   const siteUrl = String(ctx.site_url);

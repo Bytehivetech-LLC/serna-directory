@@ -98,7 +98,7 @@ export function FieldEditorDialog({
         </DialogHeader>
 
         {isCore ? (
-          <p className="rounded-lg border border-warm-border bg-warm px-3 py-2 text-xs text-[#7a5a1e]">
+          <p className="rounded-lg border border-warm-border bg-warm px-3 py-2 text-xs text-warn-ink">
             This is a core field mapped to a database column. You can relabel it, edit help text, toggle required, and reorder — but its type cannot change and it cannot be deleted.
           </p>
         ) : null}

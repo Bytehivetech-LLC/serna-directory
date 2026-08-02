@@ -28,6 +28,8 @@ export type AdminDashboard = {
   }[];
   billing: { failedPayments: number; pastDueSubs: number };
   webhookFailures: number;
+  /** stripe_events left failed, or processing >15min — a lost/stuck event. */
+  stuckStripeEvents: number;
 };
 
 async function countListings(
@@ -62,6 +64,8 @@ export async function getAdminDashboard(): Promise<AdminDashboard> {
     { count: failedPayments },
     { count: pastDueSubs },
     { count: webhookFailures },
+    { count: failedEvents },
+    { count: stuckProcessing },
   ] = await Promise.all([
     Promise.all(LISTING_STATUSES.map((s) => countListings(admin, s))),
     admin
@@ -91,6 +95,15 @@ export async function getAdminDashboard(): Promise<AdminDashboard> {
       .select("id", { count: "exact", head: true })
       .eq("action", "stripe.webhook_failed")
       .gte("created_at", weekAgo),
+    admin
+      .from("stripe_events")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "failed"),
+    admin
+      .from("stripe_events")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "processing")
+      .lt("processed_at", new Date(now.getTime() - 15 * 60 * 1000).toISOString()),
   ]);
 
   const statusCounts = Object.fromEntries(
@@ -113,7 +126,24 @@ export async function getAdminDashboard(): Promise<AdminDashboard> {
       pastDueSubs: pastDueSubs ?? 0,
     },
     webhookFailures: webhookFailures ?? 0,
+    stuckStripeEvents: (failedEvents ?? 0) + (stuckProcessing ?? 0),
   };
+}
+
+/** The failed / stuck stripe_events for the /admin/stripe-events list. */
+export async function getStuckStripeEvents(): Promise<
+  { id: string; type: string; status: string; attempts: number; last_error: string | null; processed_at: string }[]
+> {
+  await requireAdmin();
+  const admin = createAdminClient();
+  const fifteenMinAgo = new Date(Date.now() - 15 * 60 * 1000).toISOString();
+  const { data } = await admin
+    .from("stripe_events")
+    .select("id, type, status, attempts, last_error, processed_at")
+    .or(`status.eq.failed,and(status.eq.processing,processed_at.lt.${fifteenMinAgo})`)
+    .order("processed_at", { ascending: false })
+    .limit(100);
+  return data ?? [];
 }
 
 /* ------------------------------------------------------------------ users -- */
@@ -134,6 +164,7 @@ export type UserRow = {
   id: string;
   email: string;
   full_name: string | null;
+  avatar_url: string | null;
   role: string;
   is_verified: boolean;
   is_suspended: boolean;

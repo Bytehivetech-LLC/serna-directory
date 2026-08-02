@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { executeRecaptcha } from "@/lib/security/recaptcha-client";
 import { submitListingAction, type SubmitResult } from "@/lib/list-form/actions";
+import { confirmListingImagesAction } from "@/lib/list-form/confirm-uploads";
 import type { ListingSubmitInput } from "@/lib/list-form/submit-schema";
 import {
   computeStrength,
@@ -54,7 +55,16 @@ export type ListingFormInitial = {
   packageSlug?: string;
   showPhone?: boolean;
   geo?: AddressGeo;
+  social?: Record<string, string>;
 };
+
+const SOCIAL_FIELDS = [
+  { key: "facebook", label: "Facebook", placeholder: "facebook.com/yourpage or @handle" },
+  { key: "instagram", label: "Instagram", placeholder: "@yourhandle" },
+  { key: "linkedin", label: "LinkedIn", placeholder: "linkedin.com/company/you" },
+  { key: "youtube", label: "YouTube", placeholder: "youtube.com/@yourchannel" },
+  { key: "tiktok", label: "TikTok", placeholder: "@yourhandle" },
+] as const;
 
 export function ListingForm({
   config,
@@ -105,6 +115,10 @@ export function ListingForm({
   );
   const [packageSlug, setPackageSlug] = useState(defaultPackage);
   const [extras, setExtras] = useState<ExtrasSelection>({});
+  const [social, setSocial] = useState<Record<string, string>>(initial?.social ?? {});
+  const [showSocial, setShowSocial] = useState(
+    () => Object.values(initial?.social ?? {}).some(Boolean),
+  );
   const [images, setImages] = useState<ProcessedImage[]>([]);
   const [existing, setExisting] = useState<ExistingImage[]>(existingImages);
   const [removingId, setRemovingId] = useState<string | null>(null);
@@ -286,6 +300,9 @@ export function ListingForm({
             | "no"
             | "unsure",
         },
+        social: Object.fromEntries(
+          Object.entries(social).filter(([, v]) => v && v.trim()),
+        ),
         showPhone,
         tagSlugs: [...tagSlugs],
         geo,
@@ -311,7 +328,9 @@ export function ListingForm({
         return;
       }
 
-      // Upload processed photos browser → Supabase via the signed URLs.
+      // Upload processed photos browser → Supabase via the signed URLs, then
+      // ask the server to verify the bytes (magic number) and drop anything
+      // that isn't a real image before we move on.
       if (result.uploads.length) {
         const supabase = createClient();
         await Promise.all(
@@ -329,6 +348,10 @@ export function ListingForm({
                 contentType: "image/webp",
               });
           }),
+        );
+        await confirmListingImagesAction(
+          result.listingId,
+          result.uploads.map((u) => u.fullPath),
         );
       }
 
@@ -412,8 +435,8 @@ export function ListingForm({
 
       {category ? (
         <div className="animate-rise space-y-6">
-          <div className="rounded-xl border border-warm-border bg-warm px-5 py-4 text-sm text-[#7a5a1e]">
-            <b className="text-[#5c430f]">Fill out as much as you can.</b>{" "}
+          <div className="rounded-xl border border-warm-border bg-warm px-5 py-4 text-sm text-warn-ink">
+            <b className="text-warn-strong">Fill out as much as you can.</b>{" "}
             Complete listings with a rich description and photos rank higher and
             get far more inquiries. Worth the extra few minutes.
           </div>
@@ -533,8 +556,37 @@ export function ListingForm({
               </SectionCard>
             ))}
 
+          <SectionCard title="Social links" description="Optional — link the profiles families can follow you on.">
+            {showSocial ? (
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                {SOCIAL_FIELDS.map((f) => (
+                  <div key={f.key} className="space-y-1.5">
+                    <label htmlFor={`social-${f.key}`} className="text-sm font-semibold text-ink">
+                      {f.label}
+                    </label>
+                    <input
+                      id={`social-${f.key}`}
+                      value={social[f.key] ?? ""}
+                      onChange={(e) => setSocial((s) => ({ ...s, [f.key]: e.target.value }))}
+                      placeholder={f.placeholder}
+                      className="h-10 w-full rounded-lg border border-border bg-card px-3 text-sm text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet"
+                    />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setShowSocial(true)}
+                className="inline-flex items-center gap-2 rounded-lg border border-border-strong px-3 py-2 text-sm font-semibold text-ink hover:bg-secondary"
+              >
+                + Add social links
+              </button>
+            )}
+          </SectionCard>
+
           {reviewNote ? (
-            <div className="rounded-xl border border-warm-border bg-warm px-5 py-4 text-sm text-[#7a5a1e]">
+            <div className="rounded-xl border border-warm-border bg-warm px-5 py-4 text-sm text-warn-ink">
               {reviewNote}
             </div>
           ) : null}

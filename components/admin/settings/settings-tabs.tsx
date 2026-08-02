@@ -2,11 +2,12 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowDown, ArrowUp, Plus, Upload, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Plus, X } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import type { MenuItem } from "@/types";
 import type { Theme } from "@/lib/theme/defaults";
+import type { AdminTheme } from "@/lib/theme/admin-defaults";
 import type { ThemePreset } from "@/lib/theme/presets";
 import type { IntegrationPanel } from "@/lib/admin/integrations-queries";
 import type { StripeStatus } from "@/lib/stripe/status";
@@ -20,9 +21,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
+import { ImageUploadField, type UploadResult } from "@/components/ui/image-upload-field";
 import { ThemeEditor } from "./theme-editor";
+import { AdminThemeEditor } from "./admin-theme-editor";
 import {
   updateBrandingAction,
+  updateUrlsAction,
   signBrandingUploadAction,
   setBrandingImageAction,
   updateDirectoryAction,
@@ -44,20 +48,30 @@ export function SettingsTabs({
   settings,
   menuItems,
   theme,
+  adminTheme,
   integrations,
   scripts,
+  urls,
 }: {
   settings: SettingsMap;
   menuItems: MenuItem[];
   theme: { draft: Theme; published: Theme; presets: ThemePreset[]; hasDraft: boolean };
+  adminTheme: { adminTheme: AdminTheme; adminLogoUrl: string | null };
   integrations: { integrations: IntegrationPanel[]; stripe: StripeStatus };
   scripts: ScriptRow[];
+  urls: {
+    site: { url: string; rung: string };
+    admin: { url: string; rung: string };
+    isProd: boolean;
+  };
 }) {
   return (
     <Tabs defaultValue="branding" className="w-full">
       <TabsList className="flex-wrap">
+        <TabsTrigger value="general">General</TabsTrigger>
         <TabsTrigger value="branding">Branding</TabsTrigger>
         <TabsTrigger value="theme">Theme</TabsTrigger>
+        <TabsTrigger value="admin-theme">Admin theme</TabsTrigger>
         <TabsTrigger value="navigation">Navigation</TabsTrigger>
         <TabsTrigger value="directory">Directory</TabsTrigger>
         <TabsTrigger value="maps">Maps</TabsTrigger>
@@ -66,9 +80,13 @@ export function SettingsTabs({
         <TabsTrigger value="scripts">Scripts</TabsTrigger>
       </TabsList>
 
+      <TabsContent value="general" className="mt-6"><GeneralTab settings={settings} urls={urls} /></TabsContent>
       <TabsContent value="branding" className="mt-6"><BrandingTab settings={settings} /></TabsContent>
       <TabsContent value="theme" className="mt-6">
         <ThemeEditor draft={theme.draft} published={theme.published} presets={theme.presets} hasDraft={theme.hasDraft} />
+      </TabsContent>
+      <TabsContent value="admin-theme" className="mt-6">
+        <AdminThemeEditor adminTheme={adminTheme.adminTheme} adminLogoUrl={adminTheme.adminLogoUrl} />
       </TabsContent>
       <TabsContent value="navigation" className="mt-6"><NavigationTab items={menuItems} /></TabsContent>
       <TabsContent value="directory" className="mt-6"><DirectoryTab settings={settings} /></TabsContent>
@@ -96,10 +114,79 @@ function useAct() {
   return { pending, run };
 }
 
+/* ------------------------------------------------------------------ general --- */
+
+function GeneralTab({
+  settings,
+  urls,
+}: {
+  settings: SettingsMap;
+  urls: {
+    site: { url: string; rung: string };
+    admin: { url: string; rung: string };
+    isProd: boolean;
+  };
+}) {
+  const { pending, run } = useAct();
+  const [f, setF] = useState({
+    site_url: str(settings, "site_url"),
+    admin_url: str(settings, "admin_url"),
+  });
+  const [health, setHealth] = useState<string | null>(null);
+
+  const localhostInProd =
+    urls.isProd &&
+    (/localhost|127\.0\.0\.1/.test(urls.site.url) || /localhost|127\.0\.0\.1/.test(urls.admin.url));
+
+  async function test() {
+    setHealth("Checking…");
+    try {
+      const res = await fetch(`${urls.site.url}/api/health`, { cache: "no-store" });
+      const json = await res.json();
+      setHealth(json?.ok ? `OK — answered by ${json.target}` : "No healthy response.");
+    } catch {
+      setHealth("Couldn't reach the health endpoint.");
+    }
+  }
+
+  return (
+    <div className="max-w-2xl space-y-4">
+      {localhostInProd ? (
+        <div className="rounded-xl border border-danger/30 bg-danger-soft px-4 py-3 text-sm text-ink">
+          A URL resolves to <b>localhost</b> in production — emails and links will be broken. Set the
+          correct URLs below.
+        </div>
+      ) : null}
+      <SectionCard title="Public & admin URLs">
+        <div className="space-y-4">
+          <Field label="Public site URL">
+            <Input value={f.site_url} onChange={(e) => setF((p) => ({ ...p, site_url: e.target.value }))} placeholder="https://directory.example.com" />
+            <p className="mt-1 text-xs text-muted-foreground">
+              Detected: <span className="font-mono text-ink">{urls.site.url}</span> ({urls.site.rung})
+            </p>
+          </Field>
+          <Field label="Admin URL">
+            <Input value={f.admin_url} onChange={(e) => setF((p) => ({ ...p, admin_url: e.target.value }))} placeholder="https://admin.example.com" />
+            <p className="mt-1 text-xs text-muted-foreground">
+              Detected: <span className="font-mono text-ink">{urls.admin.url}</span> ({urls.admin.rung})
+            </p>
+          </Field>
+          <div className="flex flex-wrap items-center gap-3">
+            <Button disabled={pending} onClick={() => run(() => updateUrlsAction(f))}>Save URLs</Button>
+            <Button variant="outline" onClick={test}>Test /api/health</Button>
+            {health ? <span className="text-sm text-muted-foreground">{health}</span> : null}
+          </div>
+        </div>
+      </SectionCard>
+    </div>
+  );
+}
+
 /* --------------------------------------------------------------- branding --- */
 
 function BrandingTab({ settings }: { settings: SettingsMap }) {
   const { pending, run } = useAct();
+  const router = useRouter();
   const [f, setF] = useState({
     site_name: str(settings, "site_name", "Serna Educational Services"),
     logo_mark_letter: str(settings, "logo_mark_letter", "S"),
@@ -107,21 +194,23 @@ function BrandingTab({ settings }: { settings: SettingsMap }) {
     hero_subheading: str(settings, "hero_subheading"),
     footer_text: str(settings, "footer_text"),
   });
-  const [logoUrl, setLogoUrl] = useState(str(settings, "logo_url"));
+  const logoUrl = str(settings, "logo_url");
+  const faviconUrl = str(settings, "favicon_url");
   const set = <K extends keyof typeof f>(k: K, v: string) => setF((p) => ({ ...p, [k]: v }));
 
-  async function upload(kind: "logo" | "favicon", file: File) {
+  async function uploadImage(kind: "logo" | "favicon", file: File): Promise<UploadResult> {
     const ext = file.name.split(".").pop() ?? "png";
     const signed = await signBrandingUploadAction(kind, ext);
-    if (!signed.ok) return toast.error(signed.error);
+    if (!signed.ok) return { ok: false, error: signed.error };
     const supabase = createClient();
-    const { error } = await supabase.storage.from("site-assets").uploadToSignedUrl(signed.path, signed.token, file, { contentType: file.type });
-    if (error) return toast.error("Upload failed.");
-    run(async () => {
-      const res = await setBrandingImageAction(kind, signed.path);
-      if (res.ok && kind === "logo") setLogoUrl(supabase.storage.from("site-assets").getPublicUrl(signed.path).data.publicUrl);
-      return res;
-    });
+    const up = await supabase.storage
+      .from("site-assets")
+      .uploadToSignedUrl(signed.path, signed.token, file, { contentType: file.type });
+    if (up.error) return { ok: false, error: "Upload failed. Please try again." };
+    const res = await setBrandingImageAction(kind, signed.path);
+    if (!res.ok) return { ok: false, error: res.error };
+    router.refresh();
+    return { ok: true, url: supabase.storage.from("site-assets").getPublicUrl(signed.path).data.publicUrl };
   }
 
   return (
@@ -131,25 +220,21 @@ function BrandingTab({ settings }: { settings: SettingsMap }) {
           <Field label="Site name"><Input value={f.site_name} onChange={(e) => set("site_name", e.target.value)} /></Field>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label="Logo mark letter"><Input maxLength={2} value={f.logo_mark_letter} onChange={(e) => set("logo_mark_letter", e.target.value)} /></Field>
-            <Field label="Logo image">
-              <div className="flex items-center gap-3">
-                {logoUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={logoUrl} alt="" className="h-9 rounded border border-border bg-secondary object-contain px-2" />
-                ) : null}
-                <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm font-semibold hover:bg-secondary">
-                  <Upload className="h-4 w-4" /> Upload
-                  <input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" className="hidden" onChange={(e) => { const file = e.target.files?.[0]; if (file) void upload("logo", file); }} />
-                </label>
-              </div>
-            </Field>
+            <ImageUploadField
+              label="Logo image"
+              value={logoUrl || null}
+              accept={["image/png", "image/jpeg", "image/webp", "image/svg+xml"]}
+              onUpload={(file) => uploadImage("logo", file)}
+              hint="Replaces the mark + site name in the header."
+            />
           </div>
-          <Field label="Favicon">
-            <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm font-semibold hover:bg-secondary">
-              <Upload className="h-4 w-4" /> Upload favicon
-              <input type="file" accept="image/png,image/x-icon,image/svg+xml" className="hidden" onChange={(e) => { const file = e.target.files?.[0]; if (file) void upload("favicon", file); }} />
-            </label>
-          </Field>
+          <ImageUploadField
+            label="Favicon"
+            value={faviconUrl || null}
+            accept={["image/png", "image/x-icon", "image/svg+xml"]}
+            onUpload={(file) => uploadImage("favicon", file)}
+            hint="PNG, ICO, or SVG. Browsers cache favicons hard — you may need a hard refresh (Ctrl/Cmd+Shift+R) to see the new one in your tab."
+          />
         </div>
       </SectionCard>
 

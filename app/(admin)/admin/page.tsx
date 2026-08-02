@@ -144,6 +144,23 @@ export default async function AdminDashboardPage() {
         </div>
       </SectionCard>
 
+      {/* Stuck/failed Stripe events — a paid event that never finished processing. */}
+      {data.stuckStripeEvents > 0 ? (
+        <div className="flex flex-wrap items-center gap-4 rounded-xl border border-danger/30 bg-danger-soft px-5 py-4">
+          <AlertTriangle className="h-5 w-5 shrink-0 text-danger" aria-hidden />
+          <p className="text-sm text-ink">
+            <b>
+              {data.stuckStripeEvents} Stripe event
+              {data.stuckStripeEvents === 1 ? "" : "s"} failed or stuck.
+            </b>{" "}
+            A paid event may not have activated a listing.{" "}
+            <Link href="/admin/stripe-events" className="font-semibold text-indigo hover:underline">
+              Review events
+            </Link>
+          </p>
+        </div>
+      ) : null}
+
       {/* Stripe webhook failures — a hard signal something isn't being processed. */}
       {data.webhookFailures > 0 ? (
         <div className="flex flex-wrap items-center gap-4 rounded-xl border border-danger/30 bg-danger-soft px-5 py-4">
@@ -164,9 +181,9 @@ export default async function AdminDashboardPage() {
       {/* Billing problems — only when there are any. */}
       {data.billing.failedPayments > 0 || data.billing.pastDueSubs > 0 ? (
         <div className="flex flex-wrap items-center gap-4 rounded-xl border border-warm-border bg-warm px-5 py-4">
-          <AlertTriangle className="h-5 w-5 shrink-0 text-[#b4791e]" aria-hidden />
-          <p className="text-sm text-[#7a5a1e]">
-            <b className="text-[#5c430f]">Billing needs attention:</b>{" "}
+          <AlertTriangle className="h-5 w-5 shrink-0 text-warn-icon" aria-hidden />
+          <p className="text-sm text-warn-ink">
+            <b className="text-warn-strong">Billing needs attention:</b>{" "}
             {data.billing.failedPayments > 0
               ? `${data.billing.failedPayments} failed payment${data.billing.failedPayments === 1 ? "" : "s"}`
               : null}

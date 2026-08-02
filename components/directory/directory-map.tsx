@@ -173,6 +173,8 @@ function ClusteredMarkers({
                 <img
                   src={info.coverUrl}
                   alt=""
+                  width={320}
+                  height={180}
                   className="h-full w-full object-cover"
                 />
               ) : null}

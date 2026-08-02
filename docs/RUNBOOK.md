@@ -90,3 +90,23 @@ Bearer header. On a clean install it should enqueue nothing.
 Scheduled in `vercel.json`: daily `08:00 UTC` (`/api/cron/daily`), weekly Monday
 `09:00 UTC` (`/api/cron/weekly`). Both require `Authorization: Bearer $CRON_SECRET`;
 Vercel sends it automatically when `CRON_SECRET` is set.
+
+## Cross-deployment revalidation (`REVALIDATE_SECRET`)
+
+Admin and public are two separate Vercel deployments from one repo, each with its
+own Next.js cache. An admin save (theme publish, branding, taxonomy, packages,
+form builder, listing moderation) calls `revalidatePath` on the admin cache AND
+POSTs to the public deployment's `POST /api/revalidate` to clear the public
+cache. That call is authenticated by `REVALIDATE_SECRET`.
+
+Setup — **set `REVALIDATE_SECRET` to the SAME value on BOTH Vercel projects**
+(WEB and ADMIN), then redeploy both. Generate with `openssl rand -hex 32`.
+
+If it's unset, the bridge no-ops (logging a warning) and the admin save still
+succeeds — but published changes will only reach the public site when its cache
+expires on its own. The admin toast is honest about this: "Saved — the public
+site will update within a few seconds" when the bridge fired, or "Saved, but the
+public site cache didn't clear…" when it couldn't reach the public deployment.
+
+Verify: `curl -s -X POST https://<public-domain>/api/revalidate -H "x-revalidate-secret: $REVALIDATE_SECRET" -H "content-type: application/json" -d '{"layout":true}'`
+returns `{"revalidated":true,...}`. A wrong/absent secret returns `401`.

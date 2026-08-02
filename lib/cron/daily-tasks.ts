@@ -1,10 +1,11 @@
 import "server-only";
+import { siteUrl } from "@/lib/site-url";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendTemplateEmail } from "@/lib/email/send";
 import { getMapsPublicConfig, getSendgridKey, getRecaptchaSecret } from "@/lib/secrets/resolve";
 
 type Admin = ReturnType<typeof createAdminClient>;
-const WEB = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+const WEB = siteUrl();
 
 /** Un-feature listings whose featured_until has passed. */
 export async function runFeaturedExpiry(admin: Admin): Promise<{ unfeatured: number }> {

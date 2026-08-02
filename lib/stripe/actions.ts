@@ -1,6 +1,7 @@
 "use server";
 
 import { z } from "zod";
+import { siteUrl } from "@/lib/site-url";
 import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { requireUser } from "@/lib/auth/guards";
@@ -17,7 +18,7 @@ function siteOrigin(h: Headers): string {
       (host.includes("localhost") || host.startsWith("127.") ? "http" : "https");
     return `${proto}://${host}`;
   }
-  return process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+  return siteUrl();
 }
 
 /**

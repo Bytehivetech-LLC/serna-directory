@@ -1,6 +1,7 @@
 "use server";
 
 import { headers } from "next/headers";
+import { siteUrl } from "@/lib/site-url";
 import DOMPurify from "isomorphic-dompurify";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -52,7 +53,7 @@ function siteOrigin(h: Headers): string {
       (host.includes("localhost") || host.startsWith("127.") ? "http" : "https");
     return `${proto}://${host}`;
   }
-  return process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+  return siteUrl();
 }
 
 function descriptionHtml(text: string): string {
@@ -299,6 +300,7 @@ export async function submitListingAction(
       contact_phone: data.core.contact_phone ?? null,
       show_phone: data.showPhone,
       website: data.core.website ?? null,
+      social: (data.social ?? {}) as never,
       description: data.core.description,
       description_html: descriptionHtml(data.core.description),
       address_line: data.core.address_line ?? null,

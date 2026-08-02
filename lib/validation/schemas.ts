@@ -51,11 +51,82 @@ export const tagSelectionTypeSchema = z.enum(["single", "multiple"]);
 
 /* --------------------------------------------------------------- listing -- */
 
+/**
+ * One social field. Accepts a full URL OR a bare handle ("@sernaedu"), strips
+ * the leading @, tracking params and trailing slash, forces https, and rejects a
+ * URL whose host doesn't belong to this network — so a Facebook URL can't land
+ * in the Instagram field. Empty → undefined.
+ */
+function socialField(opts: {
+  label: string;
+  hosts: string[];
+  fromHandle: (handle: string) => string;
+}) {
+  return z
+    .string()
+    .trim()
+    .max(300, `${opts.label} link is too long.`)
+    .optional()
+    .transform((value, ctx) => {
+      const raw = (value ?? "").trim();
+      if (!raw) return undefined;
+
+      // Bare handle (no protocol, no dot) → build the canonical URL.
+      let s =
+        !/^https?:\/\//i.test(raw) && !raw.includes(".")
+          ? opts.fromHandle(raw.replace(/^@+/, ""))
+          : raw.replace(/^http:\/\//i, "https://");
+      if (!/^https?:\/\//i.test(s)) s = `https://${s}`;
+
+      let url: URL;
+      try {
+        url = new URL(s);
+      } catch {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: `Enter a valid ${opts.label} link.` });
+        return z.NEVER;
+      }
+      url.protocol = "https:";
+      const host = url.hostname.replace(/^www\./i, "").toLowerCase();
+      if (!opts.hosts.includes(host)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `That doesn't look like a ${opts.label} link.`,
+        });
+        return z.NEVER;
+      }
+      url.search = "";
+      url.hash = "";
+      return url.toString().replace(/\/$/, "");
+    });
+}
+
 export const socialLinksSchema = z
   .object({
-    instagram: optionalUrl(200),
-    facebook: optionalUrl(200),
-    youtube: optionalUrl(200),
+    facebook: socialField({
+      label: "Facebook",
+      hosts: ["facebook.com", "fb.com", "m.facebook.com"],
+      fromHandle: (h) => `https://facebook.com/${h}`,
+    }),
+    instagram: socialField({
+      label: "Instagram",
+      hosts: ["instagram.com"],
+      fromHandle: (h) => `https://instagram.com/${h}`,
+    }),
+    linkedin: socialField({
+      label: "LinkedIn",
+      hosts: ["linkedin.com"],
+      fromHandle: (h) => `https://linkedin.com/company/${h}`,
+    }),
+    youtube: socialField({
+      label: "YouTube",
+      hosts: ["youtube.com", "youtu.be"],
+      fromHandle: (h) => `https://youtube.com/@${h}`,
+    }),
+    tiktok: socialField({
+      label: "TikTok",
+      hosts: ["tiktok.com"],
+      fromHandle: (h) => `https://tiktok.com/@${h}`,
+    }),
   })
   .partial();
 
@@ -205,10 +276,24 @@ export type PackageUpsertInput = z.infer<typeof packageUpsertSchema>;
 const email = z.string().trim().toLowerCase().email("Enter a valid email.").max(200);
 
 /** New-password rules. 72 is bcrypt's byte ceiling. */
+// Aligned with the Supabase project password policy (min length + letter +
+// number). If your Authentication → Passwords settings differ, adjust these to
+// match exactly — a client rule stricter than the backend is its own kind of
+// broken, and one looser lets the form pass then the server reject.
+export const PASSWORD_RULES: { test: (v: string) => boolean; label: string; message: string }[] = [
+  { test: (v) => v.length >= 10, label: "At least 10 characters", message: "Use at least 10 characters." },
+  { test: (v) => /[a-zA-Z]/.test(v), label: "A letter", message: "Add at least one letter." },
+  { test: (v) => /\d/.test(v), label: "A number", message: "Add at least one number." },
+];
+
 const newPassword = z
   .string()
-  .min(8, "Use at least 8 characters.")
-  .max(72, "Passwords can be at most 72 characters.");
+  .max(72, "Passwords can be at most 72 characters.")
+  .superRefine((v, ctx) => {
+    for (const rule of PASSWORD_RULES) {
+      if (!rule.test(v)) ctx.addIssue({ code: z.ZodIssueCode.custom, message: rule.message });
+    }
+  });
 
 /** Coerce an HTML checkbox ("on"/absent) to a boolean. */
 const checkbox = z.preprocess(
@@ -219,6 +304,7 @@ const checkbox = z.preprocess(
 export const loginSchema = z.object({
   email,
   password: z.string().min(1, "Enter your password."),
+  recaptchaToken: z.string().optional(),
   next: z.string().optional(),
 });
 

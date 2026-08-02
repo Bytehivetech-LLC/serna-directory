@@ -6,7 +6,11 @@ export type SiteFooterProps = {
   nav?: NavItem[];
   brandName?: string;
   markLetter?: string;
+  /** Optional logo image; when present it REPLACES the mark + wordmark. */
+  logoUrl?: string;
   footerText?: string;
+  /** Whether the consent banner is enabled (hides the reopen link when off). */
+  consentEnabled?: boolean;
 };
 
 const DEFAULT_FOOTER_NAV: NavItem[] = [
@@ -19,20 +23,35 @@ export function SiteFooter({
   nav = DEFAULT_FOOTER_NAV,
   brandName = "Serna Educational Services",
   markLetter = "S",
+  logoUrl,
   footerText,
+  consentEnabled = true,
 }: SiteFooterProps) {
   const year = 2026;
   return (
     <footer className="mt-auto border-t border-border bg-card">
       <div className="mx-auto flex max-w-[1060px] flex-col gap-6 px-6 py-10 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-2.5">
-          <span
-            aria-hidden
-            className="grid h-8 w-8 place-items-center rounded-[9px] bg-gradient-to-br from-violet to-indigo font-display text-sm font-extrabold text-white"
-          >
-            {markLetter}
-          </span>
-          <span className="font-display text-sm font-bold text-ink">{brandName}</span>
+          {logoUrl ? (
+            // Logo REPLACES the mark + wordmark — never both. 28px tall.
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={logoUrl}
+              alt={brandName}
+              height={28}
+              className="h-7 w-auto max-w-[180px] object-contain"
+            />
+          ) : (
+            <>
+              <span
+                aria-hidden
+                className="grid h-8 w-8 place-items-center rounded-[9px] bg-gradient-to-br from-violet to-indigo font-display text-sm font-extrabold text-white"
+              >
+                {markLetter}
+              </span>
+              <span className="font-display text-sm font-bold text-ink">{brandName}</span>
+            </>
+          )}
         </div>
 
         <nav className="flex flex-wrap items-center gap-x-6 gap-y-2">
@@ -45,7 +64,10 @@ export function SiteFooter({
               {item.label}
             </Link>
           ))}
-          <ConsentReopenLink className="text-sm font-medium text-muted-foreground transition-colors hover:text-indigo" />
+          <ConsentReopenLink
+            enabled={consentEnabled}
+            className="text-sm font-medium text-muted-foreground transition-colors hover:text-indigo"
+          />
         </nav>
       </div>
       <div className="border-t border-border">

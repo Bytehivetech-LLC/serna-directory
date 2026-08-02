@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { Menu, Search } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { Button } from "@/components/ui/button";
+import { AvatarBadge } from "@/components/ui/avatar-badge";
 import {
   Sheet,
   SheetContent,
@@ -24,6 +25,9 @@ export type SiteHeaderProps = {
   activeHref?: string;
   /** When signed in, show Dashboard instead of Log in. */
   authed?: boolean;
+  /** The signed-in user's avatar + name, for the account control. */
+  avatarUrl?: string;
+  userName?: string;
   /** Wordmark text next to the logo mark. */
   brandName?: string;
   /** Optional logo image; falls back to the mark letter. */
@@ -46,17 +50,26 @@ function Brand({ name, href, logoUrl, markLetter }: { name: string; href: string
       className="flex items-center gap-2.5 text-header-text no-underline"
     >
       {logoUrl ? (
+        // A real logo REPLACES the mark + wordmark — never both. Fixed height
+        // (width auto to keep aspect ratio) prevents vertical layout shift.
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={logoUrl} alt="" className="h-9 w-auto max-w-[160px] object-contain" />
+        <img
+          src={logoUrl}
+          alt={name}
+          height={32}
+          className="h-8 w-auto max-w-[200px] object-contain"
+        />
       ) : (
-        <span
-          aria-hidden
-          className="grid h-9 w-9 place-items-center rounded-[10px] bg-gradient-to-br from-violet to-indigo font-display text-[17px] font-extrabold text-white"
-        >
-          {markLetter}
-        </span>
+        <>
+          <span
+            aria-hidden
+            className="grid h-9 w-9 place-items-center rounded-[10px] bg-gradient-to-br from-violet to-indigo font-display text-[17px] font-extrabold text-white"
+          >
+            {markLetter}
+          </span>
+          <span className="font-display text-base font-bold">{name}</span>
+        </>
       )}
-      <span className="font-display text-base font-bold">{name}</span>
     </Link>
   );
 }
@@ -103,6 +116,8 @@ export function SiteHeader({
   nav = DEFAULT_NAV,
   activeHref,
   authed = false,
+  avatarUrl,
+  userName,
   brandName = "Serna Educational Services",
   logoUrl,
   markLetter = "S",
@@ -141,9 +156,14 @@ export function SiteHeader({
           <HeaderSearch />
 
           {authed ? (
-            <Button asChild variant="secondary" size="sm">
-              <Link href="/dashboard">Dashboard</Link>
-            </Button>
+            <Link
+              href="/dashboard"
+              className="flex items-center gap-2 rounded-full py-0.5 pl-0.5 pr-3 text-sm font-semibold text-header-text no-underline transition-colors hover:bg-white/10"
+              aria-label="Your dashboard"
+            >
+              <AvatarBadge url={avatarUrl} name={userName} size={30} />
+              <span className="hidden lg:inline">Dashboard</span>
+            </Link>
           ) : (
             <Button
               asChild

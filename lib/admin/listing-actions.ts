@@ -1,6 +1,7 @@
 "use server";
 
 import { z } from "zod";
+import { siteUrl } from "@/lib/site-url";
 import { revalidatePath } from "next/cache";
 import DOMPurify from "isomorphic-dompurify";
 import { requireAdmin, getSession } from "@/lib/auth/guards";
@@ -8,9 +9,11 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { logAudit } from "@/lib/audit/log";
 import { sendTemplateEmail } from "@/lib/email/send";
 import { getSettings } from "@/lib/settings";
+import { socialLinksSchema } from "@/lib/validation/schemas";
+import { revalidateWeb } from "@/lib/admin/revalidate-web";
 import type { AdminActionResult } from "./users-actions";
 
-const WEB = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+const WEB = siteUrl();
 
 const idSchema = z.string().uuid();
 const idsSchema = z.array(z.string().uuid()).min(1).max(500);
@@ -55,11 +58,14 @@ function editLink(id: string): string {
 }
 
 /** Revalidate the public surfaces a status change affects. */
-function revalidatePublic(slug: string | null) {
+async function revalidatePublic(slug: string | null) {
   revalidatePath("/");
   if (slug) revalidatePath(`/listing/${slug}`);
   revalidatePath("/admin/listings");
   revalidatePath("/admin/listings/review");
+  // Bridge to the separate public deployment (no-op on single-deployment dev).
+  const paths = slug ? ["/", `/listing/${slug}`] : ["/"];
+  await revalidateWeb({ paths });
 }
 
 /* -------------------------------------------------------------- approve --- */
@@ -108,7 +114,7 @@ export async function approveListingAction(id: string): Promise<AdminActionResul
     });
   }
 
-  revalidatePublic(listing.slug);
+  await revalidatePublic(listing.slug);
   return { ok: true, message: `${listing.business_name} is now live.` };
 }
 
@@ -164,7 +170,7 @@ export async function rejectListingAction(
     });
   }
 
-  revalidatePublic(listing.slug);
+  await revalidatePublic(listing.slug);
   return { ok: true, message: `${listing.business_name} rejected. The owner was emailed.` };
 }
 
@@ -220,7 +226,7 @@ export async function requestChangesListingAction(
     });
   }
 
-  revalidatePublic(listing.slug);
+  await revalidatePublic(listing.slug);
   return {
     ok: true,
     message: `Changes requested. ${listing.business_name} moved back to draft and the owner was emailed.`,
@@ -255,7 +261,7 @@ export async function unpublishListingAction(
     meta: note?.trim() ? { note: note.trim() } : undefined,
   });
 
-  revalidatePublic(listing.slug);
+  await revalidatePublic(listing.slug);
   return { ok: true, message: `${listing.business_name} unpublished.` };
 }
 
@@ -302,7 +308,7 @@ export async function featureListingAction(
     after: { is_featured: true, featured_until: until },
   });
 
-  revalidatePublic(listing.slug);
+  await revalidatePublic(listing.slug);
   return { ok: true, message: `${listing.business_name} is now featured.` };
 }
 
@@ -328,7 +334,7 @@ export async function unfeatureListingAction(id: string): Promise<AdminActionRes
     after: { is_featured: false, featured_until: null },
   });
 
-  revalidatePublic(listing.slug);
+  await revalidatePublic(listing.slug);
   return { ok: true, message: `${listing.business_name} is no longer featured.` };
 }
 
@@ -372,7 +378,7 @@ export async function softDeleteListingAction(id: string): Promise<AdminActionRe
     });
   }
 
-  revalidatePublic(listing.slug);
+  await revalidatePublic(listing.slug);
   return { ok: true, message: `${listing.business_name} deleted.` };
 }
 
@@ -399,7 +405,7 @@ export async function permanentDeleteListingAction(
     entityId: id,
     meta: { name: listing.business_name },
   });
-  revalidatePublic(listing.slug);
+  await revalidatePublic(listing.slug);
   revalidatePath("/admin/listings");
   return { ok: true, message: `${listing.business_name} permanently deleted. Its photos are queued for removal.` };
 }
@@ -427,7 +433,7 @@ export async function restoreListingAction(id: string): Promise<AdminActionResul
     after: { status: "unpublished", deleted_at: null },
   });
 
-  revalidatePublic(listing.slug);
+  await revalidatePublic(listing.slug);
   return { ok: true, message: `${listing.business_name} restored (unpublished).` };
 }
 
@@ -508,6 +514,7 @@ const updateSchema = z.object({
   ages_served: z.string().trim().max(200).optional().nullable(),
   rate_text: z.string().trim().max(200).optional().nullable(),
   accepts_esa: z.enum(["yes", "no", "unsure"]).optional().nullable(),
+  social: socialLinksSchema.optional(),
   priority_rank: z.number().int().min(0).max(1000).optional(),
 });
 
@@ -571,6 +578,7 @@ export async function updateListingAction(
     ages_served: d.ages_served ?? null,
     rate_text: d.rate_text ?? null,
     accepts_esa: d.accepts_esa ?? null,
+    social: (d.social ?? {}) as never,
     priority_rank: d.priority_rank ?? 0,
   };
 
@@ -590,7 +598,7 @@ export async function updateListingAction(
     after: { ...patch, also_serves: alsoServes.join(", "), description_html: undefined },
   });
 
-  revalidatePublic(before.slug);
+  await revalidatePublic(before.slug);
   revalidatePath(`/admin/listings/${id}`);
   return { ok: true, message: "Listing updated." };
 }
@@ -788,6 +796,7 @@ export async function bulkUnpublishListingsAction(
   });
   revalidatePath("/");
   revalidatePath("/admin/listings");
+  await revalidateWeb({ paths: ["/"] });
   return {
     ok: true,
     message: `${parsed.data.length} ${parsed.data.length === 1 ? "listing" : "listings"} unpublished.`,
@@ -816,6 +825,7 @@ export async function bulkDeleteListingsAction(
   });
   revalidatePath("/");
   revalidatePath("/admin/listings");
+  await revalidateWeb({ paths: ["/"] });
   return {
     ok: true,
     message: `${parsed.data.length} ${parsed.data.length === 1 ? "listing" : "listings"} deleted.`,

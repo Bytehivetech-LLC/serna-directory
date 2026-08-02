@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { signOutAction } from "@/lib/auth/actions";
 import { cn } from "@/lib/utils/cn";
+import { AvatarBadge } from "@/components/ui/avatar-badge";
 
 const ITEMS = [
   { href: "/dashboard", label: "Overview", icon: LayoutDashboard, exact: true },
@@ -19,13 +20,29 @@ const ITEMS = [
   { href: "/dashboard/profile", label: "Profile", icon: UserRound },
 ];
 
-export function DashboardSidebar() {
+export function DashboardSidebar({
+  avatarUrl,
+  name,
+  email,
+}: {
+  avatarUrl?: string | null;
+  name?: string | null;
+  email?: string | null;
+}) {
   const pathname = usePathname();
   const isActive = (href: string, exact?: boolean) =>
     exact ? pathname === href : pathname === href || pathname.startsWith(`${href}/`);
 
   return (
     <nav className="flex flex-row gap-1 md:flex-col" aria-label="Dashboard">
+      <div className="mb-2 hidden items-center gap-2.5 px-3 py-2 md:flex">
+        <AvatarBadge url={avatarUrl} name={name ?? email} size={36} />
+        <div className="min-w-0">
+          {name ? <p className="truncate text-sm font-semibold text-ink">{name}</p> : null}
+          {email ? <p className="truncate text-xs text-muted-foreground">{email}</p> : null}
+        </div>
+      </div>
+
       {ITEMS.map(({ href, label, icon: Icon, exact }) => (
         <Link
           key={href}

@@ -55,17 +55,17 @@ export default async function DirectoryHomePage({
     fetchDirectory(filters),
     fetchFilterData(filters.category),
     fetchMapSettings(),
-    getSettings(["hero_title", "hero_subtitle"]),
+    // Read the SAME keys the branding form writes (hero_heading/hero_subheading).
+    // The page previously read hero_title/hero_subtitle, which nothing wrote —
+    // that key mismatch is why the hero never appeared while the footer did.
+    getSettings(["hero_heading", "hero_subheading"]),
   ]);
 
   const heroTitle =
-    typeof settings.hero_title === "string" && settings.hero_title
-      ? settings.hero_title
-      : "Find the right fit for your family";
+    typeof settings.hero_heading === "string" ? settings.hero_heading.trim() : "";
   const heroSubtitle =
-    typeof settings.hero_subtitle === "string" && settings.hero_subtitle
-      ? settings.hero_subtitle
-      : "Tutors, co-ops, micro schools and more across Arizona.";
+    typeof settings.hero_subheading === "string" ? settings.hero_subheading.trim() : "";
+  const showHero = Boolean(heroTitle || heroSubtitle);
 
   const base = process.env.NEXT_PUBLIC_SITE_URL ?? "";
   const itemListLd = {
@@ -82,12 +82,20 @@ export default async function DirectoryHomePage({
   return (
     <PageContainer className="max-w-[1280px] py-8">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(itemListLd) }} />
-      <div className="mb-6 max-w-2xl">
-        <h1 className="font-display text-3xl font-extrabold leading-[1.08] tracking-[-0.015em] text-ink sm:text-4xl">
-          {heroTitle}
-        </h1>
-        <p className="mt-3 text-base text-muted-foreground">{heroSubtitle}</p>
-      </div>
+      {/* Hero sits above the filter bar + grid; hidden entirely when both values
+          are empty so we never leave a blank band. */}
+      {showHero ? (
+        <div className="mb-6 max-w-2xl">
+          {heroTitle ? (
+            <h1 className="font-display text-3xl font-extrabold leading-[1.08] tracking-[-0.015em] text-ink sm:text-4xl">
+              {heroTitle}
+            </h1>
+          ) : null}
+          {heroSubtitle ? (
+            <p className="mt-3 text-base text-muted-foreground">{heroSubtitle}</p>
+          ) : null}
+        </div>
+      ) : null}
 
       <DirectoryFilterProvider>
         <DirectoryView
