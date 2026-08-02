@@ -9,6 +9,8 @@ export type SiteFooterProps = {
   /** Optional logo image; when present it REPLACES the mark + wordmark. */
   logoUrl?: string;
   footerText?: string;
+  /** Whether the consent banner is enabled (hides the reopen link when off). */
+  consentEnabled?: boolean;
 };
 
 const DEFAULT_FOOTER_NAV: NavItem[] = [
@@ -23,6 +25,7 @@ export function SiteFooter({
   markLetter = "S",
   logoUrl,
   footerText,
+  consentEnabled = true,
 }: SiteFooterProps) {
   const year = 2026;
   return (
@@ -61,7 +64,10 @@ export function SiteFooter({
               {item.label}
             </Link>
           ))}
-          <ConsentReopenLink className="text-sm font-medium text-muted-foreground transition-colors hover:text-indigo" />
+          <ConsentReopenLink
+            enabled={consentEnabled}
+            className="text-sm font-medium text-muted-foreground transition-colors hover:text-indigo"
+          />
         </nav>
       </div>
       <div className="border-t border-border">

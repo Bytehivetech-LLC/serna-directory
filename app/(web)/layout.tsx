@@ -77,6 +77,7 @@ export default async function WebLayout({
         markLetter={markLetter}
         logoUrl={logoUrl}
         footerText={footerText}
+        consentEnabled={consentEnabled}
         nav={footerNav.length ? footerNav : undefined}
       />
       <ScriptInjector slot="body_end" />
