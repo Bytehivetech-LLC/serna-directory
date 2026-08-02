@@ -42,12 +42,24 @@ function parseTheme(input: unknown): Theme | null {
   return parsed.data as Theme;
 }
 
-async function writeSetting(key: string, value: unknown) {
+/**
+ * Write one setting, RETURNING any DB error. The site_settings_theme_guard
+ * trigger raises a human-readable message when a theme write is malformed; that
+ * error must be surfaced, not swallowed — a rejected write that reports success
+ * is exactly why "theme changes don't reach the site" was undiagnosable.
+ */
+async function writeSetting(key: string, value: unknown): Promise<string | null> {
   const admin = createAdminClient();
   const session = await getSession();
-  await admin
+  const { error } = await admin
     .from("site_settings")
     .upsert({ key, value: value as never, updated_by: session?.user?.id ?? null });
+  if (error) {
+    console.error(`[theme] write "${key}" rejected:`, error.message);
+    // Postgres trigger RAISE messages are written for humans — surface verbatim.
+    return error.message || "The database rejected that theme write.";
+  }
+  return null;
 }
 
 /** Save the working palette to the draft — never straight to the live theme. */
@@ -55,7 +67,8 @@ export async function saveThemeDraftAction(input: unknown): Promise<ThemeActionR
   await requireAdmin();
   const theme = parseTheme(input);
   if (!theme) return { ok: false, error: "Some colours or fonts are invalid." };
-  await writeSetting("theme_draft", theme);
+  const err = await writeSetting("theme_draft", theme);
+  if (err) return { ok: false, error: err };
   await logAudit({ action: "theme.draft_save", entityType: "theme" });
   revalidatePath("/admin/settings");
   return { ok: true };
@@ -76,7 +89,8 @@ export async function publishThemeAction(input: unknown): Promise<ThemeActionRes
     };
   }
 
-  await writeSetting("theme", theme);
+  const themeErr = await writeSetting("theme", theme);
+  if (themeErr) return { ok: false, error: themeErr };
   await writeSetting("theme_draft", theme);
   await logAudit({ action: "theme.publish", entityType: "theme", after: theme as unknown as Record<string, unknown> });
 
