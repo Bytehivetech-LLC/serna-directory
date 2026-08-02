@@ -1,6 +1,7 @@
 import "server-only";
+import { getRecaptchaSecret, markIntegrationSuccess } from "@/lib/secrets/resolve";
 
-export type RecaptchaResult = { ok: boolean; reason?: string };
+export type RecaptchaResult = { ok: boolean; reason?: string; score?: number };
 
 /**
  * Verify a reCAPTCHA v3 token server-side.
@@ -14,7 +15,7 @@ export async function verifyRecaptcha(
   action: string,
   minScore = 0.5,
 ): Promise<RecaptchaResult> {
-  const secret = process.env.RECAPTCHA_SECRET_KEY;
+  const secret = await getRecaptchaSecret();
   if (!secret) return { ok: true };
   if (!token) return { ok: false, reason: "Verification failed. Please try again." };
 

@@ -113,8 +113,61 @@ Never read `.env.local` or `keys.txt`.
   **11 — Admin listings & moderation**, **12 — Admin packages & Stripe**,
   **13 — Add-on products**, **14 — Admin categories & tags**,
   **15 — Form builder, settings, menu, branding**,
-  **16 — Email studio & asset lifecycle**
-- Next phase: **17** (per `docs/04-CLAUDE-PROMPTS.md`)
+  **16 — Email studio & asset lifecycle**,
+  **17 — Integrations, secrets & custom scripts**
+- Next phase: **18** (per `docs/04-CLAUDE-PROMPTS.md`)
+- Phase 17 notes:
+  - **A — secrets**: `lib/secrets/crypto.ts` AES-256-GCM (server-only, key from
+    `SECRETS_ENCRYPTION_KEY` base64/32-byte, format `base64(iv|tag|ct)`, throws at
+    load if the key is bad). `npm run generate:secret-key`. `lib/secrets/resolve.ts`
+    reads `integration_settings` with the **service-role** client, decrypts in
+    memory, **DB-value-first then env fallback**, `cache()` per request, and
+    **never throws a page** (decrypt fail → env + `last_error_message` + warn).
+    Narrow helpers: `getSendgridKey/getSendgridFrom/getRecaptchaSecret/
+    getRecaptchaPublicConfig/getMapsPublicConfig`. Email `sendgrid.ts` and the
+    reCAPTCHA verifier now call these (env is only the fallback). **The Check-it's
+    "delete env, email still sends" comes from this.** `requireRecentMFA()` guard
+    (decodes the session `amr`; 15-min window) gates secret writes.
+  - **B — `/admin/settings → Integrations`**: SendGrid / reCAPTCHA / Maps / Stripe
+    cards (`components/admin/settings/integrations-tab.tsx`). Status pill, last
+    used/error, key shown as **hint only ("ends …a8Fq · updated …") with Replace —
+    never a reveal**. Secret writes go through `useSecretSave` which, on
+    `mfaRequired`, prompts for a TOTP code, elevates the session in the browser,
+    and retries. Actions (`lib/admin/integrations-actions.ts`) requireAdmin +
+    requireRecentMFA + shape validation (SG. / 40-char) + audit that a secret
+    **changed, never its value**. **The client never receives a decrypted secret.**
+    Stripe secret is read-only ("Managed in Vercel").
+  - **C — `/admin/settings → Scripts`**: **Guided** (GA4/GTM/Meta/Clarity/Hotjar/
+    LinkedIn/TikTok — paste an ID, `lib/scripts/providers.ts` validates it and
+    generates the official snippet server-side) + **Custom code** (one-time "I
+    understand" ack, saved **inactive**). `ScriptInjector`
+    (`components/layout/script-injector.tsx`) renders active scripts into the
+    **public layout only** — self-guards on `APP_TARGET`, asserted in
+    `scripts/injector.test.mjs` (`npm test`). `applies_to` scopes pages; consent
+    gates non-essential. **DB trigger** (migration `20260803130000`) rejects
+    `document.cookie`/storage/`eval`/`Function` — **the Check-it's rejection**;
+    the action checks the same patterns first. CSP `script-src` folds in
+    `GUIDED_HOSTS`; custom hosts accumulate into the `script_hosts` setting.
+  - **D — consent banner** (`components/consent/consent-banner.tsx`): Accept /
+    Reject / Preferences with **Reject as prominent as Accept**, remembered in the
+    `serna-consent` cookie, gating analytics/marketing until accepted, with a
+    footer "Cookie preferences" reopen link. Toggled by the
+    `consent_banner_enabled` setting (switch on the Scripts tab).
+  - **E** — `docs/INTEGRATIONS.md` (where keys live, rotation, recovery).
+  - **Deliberately minimal / deferred** (documented): custom-script `external_hosts`
+    are collected into the `script_hosts` setting but the middleware CSP currently
+    folds in only the static `GUIDED_HOSTS` union (per-request DB reads in edge
+    middleware were avoided) — wiring the stored hosts into the CSP is the
+    follow-up; head-slot scripts render at the top of the public body (not literal
+    `<head>`); the custom-code editor is a mono `<textarea>` (no syntax
+    highlighting lib); the Maps "pick centre on a map" is numeric lat/lng/zoom.
+
+### Phase 17 manual setup required
+1. Generate + set `SECRETS_ENCRYPTION_KEY` (`npm run generate:secret-key`) in the
+   environment. Without it, the app runs but **secret writes error** and stored
+   secrets can't be decrypted (resolution falls back to env).
+2. Apply migration `20260803130000_reject_dangerous_scripts.sql` (the DB script
+   guard the Check-it relies on).
 - Phase 16 notes:
   - **A — email render**: `lib/email/shell.ts` rebuilt as a **600px table**
     layout (Outlook-safe, no flex/grid), colours from the live theme (`getTheme`)

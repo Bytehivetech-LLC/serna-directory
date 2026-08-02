@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { updateSession } from "@/lib/supabase/middleware";
+import { GUIDED_HOSTS } from "@/lib/scripts/providers";
 
 /**
  * One repo, two deployments (APP_TARGET). This middleware:
@@ -37,6 +38,8 @@ function contentSecurityPolicy(): string {
       "https://maps.googleapis.com",
       "https://www.google.com",
       "https://www.gstatic.com",
+      // Guided analytics/marketing tags (only relevant on the public site).
+      ...(APP_TARGET === "web" ? GUIDED_HOSTS : []),
     ],
     "style-src": ["'self'", "'unsafe-inline'"], // Tailwind + injected theme <style>
     "img-src": [

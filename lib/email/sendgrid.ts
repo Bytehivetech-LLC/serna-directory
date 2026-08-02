@@ -1,5 +1,6 @@
 import "server-only";
 import sgMail from "@sendgrid/mail";
+import { getSendgridKey, getSendgridFrom, markIntegrationSuccess } from "@/lib/secrets/resolve";
 
 export type SendEmailInput = {
   to: string;
@@ -20,9 +21,9 @@ export type SendResult = {
  * email_log). "skipped" = SendGrid not configured (dev); "failed" = an error.
  */
 export async function sendEmail(input: SendEmailInput): Promise<SendResult> {
-  const apiKey = process.env.SENDGRID_API_KEY;
-  const fromEmail = process.env.SENDGRID_FROM_EMAIL;
-  if (!apiKey || !fromEmail) {
+  // Keys resolve from the integrations panel first, env second.
+  const [apiKey, from] = await Promise.all([getSendgridKey(), getSendgridFrom()]);
+  if (!apiKey || !from.email) {
     console.warn(
       `[email] SendGrid not configured — would send "${input.subject}" to ${input.to}`,
     );
@@ -33,10 +34,7 @@ export async function sendEmail(input: SendEmailInput): Promise<SendResult> {
     sgMail.setApiKey(apiKey);
     const [response] = await sgMail.send({
       to: input.to,
-      from: {
-        email: fromEmail,
-        name: process.env.SENDGRID_FROM_NAME || "Serna Educational Services",
-      },
+      from: { email: from.email, name: from.name },
       replyTo: input.replyTo,
       subject: input.subject,
       html: input.html,
@@ -44,6 +42,7 @@ export async function sendEmail(input: SendEmailInput): Promise<SendResult> {
     });
     const providerId =
       (response?.headers?.["x-message-id"] as string | undefined) ?? undefined;
+    void markIntegrationSuccess("sendgrid");
     return { status: "sent", providerId };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);

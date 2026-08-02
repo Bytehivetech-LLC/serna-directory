@@ -8,6 +8,11 @@ import { createClient } from "@/lib/supabase/client";
 import type { MenuItem } from "@/types";
 import type { Theme } from "@/lib/theme/defaults";
 import type { ThemePreset } from "@/lib/theme/presets";
+import type { IntegrationPanel } from "@/lib/admin/integrations-queries";
+import type { StripeStatus } from "@/lib/stripe/status";
+import type { ScriptRow } from "@/lib/admin/scripts-queries";
+import { IntegrationsTab } from "./integrations-tab";
+import { ScriptsTab } from "./scripts-tab";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SectionCard } from "@/components/layout/section-card";
 import { Button } from "@/components/ui/button";
@@ -15,8 +20,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { EmptyState } from "@/components/layout/empty-state";
-import { Plug } from "lucide-react";
 import { ThemeEditor } from "./theme-editor";
 import {
   updateBrandingAction,
@@ -41,10 +44,14 @@ export function SettingsTabs({
   settings,
   menuItems,
   theme,
+  integrations,
+  scripts,
 }: {
   settings: SettingsMap;
   menuItems: MenuItem[];
   theme: { draft: Theme; published: Theme; presets: ThemePreset[]; hasDraft: boolean };
+  integrations: { integrations: IntegrationPanel[]; stripe: StripeStatus };
+  scripts: ScriptRow[];
 }) {
   return (
     <Tabs defaultValue="branding" className="w-full">
@@ -67,8 +74,12 @@ export function SettingsTabs({
       <TabsContent value="directory" className="mt-6"><DirectoryTab settings={settings} /></TabsContent>
       <TabsContent value="maps" className="mt-6"><MapsTab settings={settings} /></TabsContent>
       <TabsContent value="email" className="mt-6"><EmailTab settings={settings} /></TabsContent>
-      <TabsContent value="integrations" className="mt-6"><Placeholder title="Integrations" /></TabsContent>
-      <TabsContent value="scripts" className="mt-6"><Placeholder title="Custom scripts" /></TabsContent>
+      <TabsContent value="integrations" className="mt-6">
+        <IntegrationsTab integrations={integrations.integrations} stripe={integrations.stripe} />
+      </TabsContent>
+      <TabsContent value="scripts" className="mt-6">
+        <ScriptsTab scripts={scripts} bannerEnabled={settings.consent_banner_enabled === true} />
+      </TabsContent>
     </Tabs>
   );
 }
@@ -346,18 +357,6 @@ function MenuColumn({ location, title, items }: { location: "header" | "footer";
         </div>
       </div>
     </SectionCard>
-  );
-}
-
-/* --------------------------------------------------------- placeholders --- */
-
-function Placeholder({ title }: { title: string }) {
-  return (
-    <EmptyState
-      icon={Plug}
-      title={`${title} — coming in the next phase`}
-      description="This is deliberately empty. Phase 17 builds it on top of the encrypted-secrets infrastructure, so there's no temporary version here."
-    />
   );
 }
 

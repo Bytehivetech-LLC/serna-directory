@@ -1,5 +1,7 @@
 import { SiteHeader, type NavItem } from "@/components/layout/site-header";
 import { SiteFooter } from "@/components/layout/site-footer";
+import { ScriptInjector } from "@/components/layout/script-injector";
+import { ConsentBanner } from "@/components/consent/consent-banner";
 import { getSession } from "@/lib/auth/guards";
 import { getSettings } from "@/lib/settings";
 import { createClient } from "@/lib/supabase/server";
@@ -9,7 +11,7 @@ export default async function WebLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   const [session, settings, supabase] = await Promise.all([
     getSession(),
-    getSettings(["site_name", "logo_url", "logo_mark_letter", "footer_text"]),
+    getSettings(["site_name", "logo_url", "logo_mark_letter", "footer_text", "consent_banner_enabled"]),
     createClient(),
   ]);
 
@@ -40,8 +42,13 @@ export default async function WebLayout({
   const footerText =
     typeof settings.footer_text === "string" ? settings.footer_text : undefined;
 
+  const consentEnabled = settings.consent_banner_enabled === true;
+
   return (
     <div className="flex min-h-screen flex-col bg-background">
+      {/* Admin-configured tracking — PUBLIC layout only (self-guards on APP_TARGET). */}
+      <ScriptInjector slot="head" />
+      <ScriptInjector slot="body_start" />
       <SiteHeader
         authed={Boolean(session?.user)}
         brandName={brandName}
@@ -56,6 +63,8 @@ export default async function WebLayout({
         footerText={footerText}
         nav={footerNav.length ? footerNav : undefined}
       />
+      <ScriptInjector slot="body_end" />
+      <ConsentBanner enabled={consentEnabled} />
     </div>
   );
 }

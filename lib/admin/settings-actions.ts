@@ -176,6 +176,15 @@ export async function sendTestEmailAction(): Promise<AdminActionResult> {
   };
 }
 
+/* --------------------------------------------------------------- consent --- */
+
+export async function updateConsentBannerAction(enabled: boolean): Promise<AdminActionResult> {
+  await requireAdmin();
+  await writeSettings({ consent_banner_enabled: enabled }, "settings.consent");
+  revalidatePath("/", "layout");
+  return { ok: true, message: enabled ? "Consent banner enabled." : "Consent banner disabled." };
+}
+
 /* ------------------------------------------------------------ navigation --- */
 
 const menuItemSchema = z.object({

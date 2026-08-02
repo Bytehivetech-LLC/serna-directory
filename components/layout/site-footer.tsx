@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { NavItem } from "./site-header";
+import { ConsentReopenLink } from "@/components/consent/consent-banner";
 
 export type SiteFooterProps = {
   nav?: NavItem[];
@@ -44,6 +45,7 @@ export function SiteFooter({
               {item.label}
             </Link>
           ))}
+          <ConsentReopenLink className="text-sm font-medium text-muted-foreground transition-colors hover:text-indigo" />
         </nav>
       </div>
       <div className="border-t border-border">
