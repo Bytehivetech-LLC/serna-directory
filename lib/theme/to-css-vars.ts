@@ -37,6 +37,15 @@ function safeFamily(name: string): string {
  * families pass through. Any individual bad colour silently falls back to the
  * default for that slot — a single malformed value can never blank the site.
  */
+/**
+ * Same as toCssVars but scoped to an arbitrary selector (e.g. a live-preview
+ * container). Values are still parsed/validated per-slot; the only interpolation
+ * is into the custom-property block, never arbitrary CSS.
+ */
+export function toCssVarsScoped(theme: Theme, selector: string): string {
+  return toCssVars(theme).replace(/^:root/, selector);
+}
+
 export function toCssVars(theme: Theme): string {
   const lines: string[] = [];
 

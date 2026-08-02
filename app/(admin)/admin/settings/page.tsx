@@ -1,0 +1,22 @@
+import type { Metadata } from "next";
+import { getAllSettings, getMenuItems } from "@/lib/admin/settings-queries";
+import { getThemeEditorData } from "@/lib/admin/theme-queries";
+import { PageHeading } from "@/components/layout/page-heading";
+import { SettingsTabs } from "@/components/admin/settings/settings-tabs";
+
+export const metadata: Metadata = { title: "Settings" };
+
+export default async function SettingsPage() {
+  const [settings, menuItems, theme] = await Promise.all([
+    getAllSettings(),
+    getMenuItems(),
+    getThemeEditorData(),
+  ]);
+
+  return (
+    <div className="space-y-6">
+      <PageHeading title="Settings" lede="Branding, theme, navigation, and site configuration." />
+      <SettingsTabs settings={settings} menuItems={menuItems} theme={theme} />
+    </div>
+  );
+}

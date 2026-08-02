@@ -26,6 +26,10 @@ export type SiteHeaderProps = {
   authed?: boolean;
   /** Wordmark text next to the logo mark. */
   brandName?: string;
+  /** Optional logo image; falls back to the mark letter. */
+  logoUrl?: string;
+  /** Single letter shown in the gradient mark when there's no logo image. */
+  markLetter?: string;
   /** Where the wordmark links to (the public directory home by default). */
   homeHref?: string;
 };
@@ -35,18 +39,23 @@ const DEFAULT_NAV: NavItem[] = [
   { label: "List your business", href: "/list-a-program" },
 ];
 
-function Brand({ name, href }: { name: string; href: string }) {
+function Brand({ name, href, logoUrl, markLetter }: { name: string; href: string; logoUrl?: string; markLetter: string }) {
   return (
     <Link
       href={href}
       className="flex items-center gap-2.5 text-header-text no-underline"
     >
-      <span
-        aria-hidden
-        className="grid h-9 w-9 place-items-center rounded-[10px] bg-gradient-to-br from-violet to-indigo font-display text-[17px] font-extrabold text-white"
-      >
-        S
-      </span>
+      {logoUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={logoUrl} alt="" className="h-9 w-auto max-w-[160px] object-contain" />
+      ) : (
+        <span
+          aria-hidden
+          className="grid h-9 w-9 place-items-center rounded-[10px] bg-gradient-to-br from-violet to-indigo font-display text-[17px] font-extrabold text-white"
+        >
+          {markLetter}
+        </span>
+      )}
       <span className="font-display text-base font-bold">{name}</span>
     </Link>
   );
@@ -95,6 +104,8 @@ export function SiteHeader({
   activeHref,
   authed = false,
   brandName = "Serna Educational Services",
+  logoUrl,
+  markLetter = "S",
   homeHref = "/",
 }: SiteHeaderProps) {
   const pathname = usePathname();
@@ -106,7 +117,7 @@ export function SiteHeader({
   return (
     <header className="bg-header-bg text-header-text">
       <div className="mx-auto flex max-w-[1120px] items-center gap-4 px-6 py-3.5">
-        <Brand name={brandName} href={homeHref} />
+        <Brand name={brandName} href={homeHref} logoUrl={logoUrl} markLetter={markLetter} />
 
         {/* Desktop nav + search + actions */}
         <div className="ml-auto hidden items-center gap-5 md:flex">

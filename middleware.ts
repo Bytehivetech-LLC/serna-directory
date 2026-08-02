@@ -105,6 +105,19 @@ export async function middleware(request: NextRequest) {
     if (isAdminPath(pathname)) {
       return applySecurityHeaders(notFound(response));
     }
+    // Theme-draft preview: set/clear a cookie the root layout reads. The layout
+    // only honours it for signed-in admins, so this is a harmless hint.
+    const themeParam = request.nextUrl.searchParams.get("theme");
+    if (themeParam === "draft") {
+      response.cookies.set("serna-theme-preview", "draft", {
+        path: "/",
+        sameSite: "lax",
+        httpOnly: true,
+        maxAge: 60 * 60,
+      });
+    } else if (themeParam === "live") {
+      response.cookies.delete("serna-theme-preview");
+    }
     return applySecurityHeaders(response);
   }
 

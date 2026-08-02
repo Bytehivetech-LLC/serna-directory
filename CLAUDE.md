@@ -111,8 +111,62 @@ Never read `.env.local` or `keys.txt`.
   **6 — Listing form**, **7 — Accounts & email**, **8 — Stripe**,
   **9 — Owner dashboard**, **10 — Admin shell & users**,
   **11 — Admin listings & moderation**, **12 — Admin packages & Stripe**,
-  **13 — Add-on products**, **14 — Admin categories & tags**
-- Next phase: **15** (per `docs/04-CLAUDE-PROMPTS.md`)
+  **13 — Add-on products**, **14 — Admin categories & tags**,
+  **15 — Form builder, settings, menu, branding**
+- Next phase: **16** (per `docs/04-CLAUDE-PROMPTS.md`)
+- Phase 15 notes:
+  - **A — `/admin/form-builder`**: two-pane (`components/admin/form-builder/*`).
+    Left = sections/fields tree with arrow reorder, section dialog, field editor
+    dialog; right = live `FormPreview` with a **"Preview as category"** selector.
+    Field editor: label/help/placeholder/type/options/required/max-length/strength/
+    show-on-public/category-scope. **Core fields are locked** (relabel/reorder/
+    required only — never type/delete; the lock tooltip explains why). Deleting a
+    custom field only removes the `form_fields` row — **saved values stay in each
+    listing's `custom_fields`**; `fieldUsageAction` reports the count for the
+    warning. Actions revalidate `/list-a-program` — no deploy.
+  - **B — `/admin/settings`** (tabbed):
+    - **Branding**: site name, logo mark letter, logo + favicon upload to
+      `site-assets/branding/`, hero heading/subheading, footer text. The public
+      `(web)/layout.tsx` now reads these + `menu_items` and feeds `SiteHeader`/
+      `SiteFooter` (logo image or mark letter, brand name, nav, footer text).
+    - **Theme**: two-pane editor (`components/admin/settings/theme-editor.tsx`).
+      Controls grouped (Text/Brand/Surfaces/Borders/States/Shape/Type); each
+      colour row = swatch + hex + **EyeDropper** (where supported) + reset-one.
+      Live preview repaints via a **scoped** `:root`→`.theme-preview` block
+      (`toCssVarsScoped`) so the same Tailwind utilities recolour instantly.
+      Edits debounce-save to **`theme_draft`**; **Publish** copies draft→`theme`
+      (revalidate `"/","layout"`); discard/reset confirm. Presets = 3 built-ins
+      (Serna default + Warmer + Higher-contrast) plus user presets in
+      `theme_presets`. **Contrast guard** (`lib/theme/contrast.ts`, WCAG AA) hard-
+      blocks publish and names failing pairs (faint-on-card is advisory only, so
+      the brand default stays publishable). Server Zod re-validates hex/radius
+      (0–24)/fonts (allowlist) — values only ever go into the `:root` block.
+    - **`?theme=draft`** preview: middleware sets a `serna-theme-preview` cookie;
+      the **root layout** honours it *only* for signed-in admins (`getDraftTheme`
+      via RLS), everyone else keeps the published theme.
+    - **Navigation**: header/footer menu builder (label, url, new-tab, reorder,
+      one level of nesting, activate) → `menu_items`.
+    - **Directory**: per-page, default sort, review-SLA days, pending-direct-link.
+    - **Maps**: default centre lat/lng/zoom + browser key.
+    - **Email**: from name/address, admin recipients, **send test email**.
+    - **Integrations / Scripts**: deliberate placeholders (Phase 17).
+  - All settings/theme/form actions requireAdmin + Zod + logAudit and revalidate
+    the affected public paths.
+  - **Deliberately minimal / deferred** (documented): custom fonts aren't actually
+    web-loaded (only Bricolage/Inter self-hosted; a picked font falls back through
+    the stack); the Maps tab uses numeric centre/zoom inputs rather than a
+    click-to-pick embedded map; new field types (number/multiselect/date) render
+    as best-effort inputs in the preview and aren't yet wired into the public
+    `DynamicField`. The DB trigger validating theme writes is assumed present and
+    untouched.
+
+### Phase 15 manual setup / notes
+- No new migrations. Uses existing `site_settings` keys (`theme`, `theme_draft`,
+  `theme_presets`, `site_name`, `logo_url`, `logo_mark_letter`, `favicon_url`,
+  `hero_heading`, `hero_subheading`, `footer_text`, `listings_per_page`,
+  `default_sort`, `review_sla_days`, `allow_pending_direct_link`,
+  `default_map_center`, `google_maps_browser_key`, `email_from_name`,
+  `email_from_address`, `admin_notification_recipients`) and `menu_items`.
 - Phase 14 notes:
   - `/admin/taxonomy` — three tabs (`components/admin/taxonomy/*`). No new
     migrations; it drives the existing `categories` / `tag_groups` / `tags`
