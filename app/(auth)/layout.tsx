@@ -1,30 +1,55 @@
 import Link from "next/link";
+import { getSettings } from "@/lib/settings";
 
-/** Focused, header-light shell for auth pages: brand mark + centred content. */
-export default function AuthLayout({
+/**
+ * Focused, header-light shell for /login, /register, /forgot-password and
+ * /reset-password. The brand sits ABOVE the card, horizontally centred, and a
+ * real logo REPLACES the mark + wordmark (same rule as the site header).
+ */
+export default async function AuthLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
+  const settings = await getSettings(["site_name", "logo_url", "logo_mark_letter"]);
+  const brandName =
+    typeof settings.site_name === "string" && settings.site_name
+      ? settings.site_name
+      : "Serna Educational Services";
+  const logoUrl =
+    typeof settings.logo_url === "string" ? settings.logo_url || undefined : undefined;
+  const markLetter =
+    typeof settings.logo_mark_letter === "string" && settings.logo_mark_letter
+      ? settings.logo_mark_letter
+      : brandName.slice(0, 1).toUpperCase();
+
   return (
     <div className="flex min-h-screen flex-col bg-background">
-      <div className="mx-auto flex w-full max-w-[1060px] items-center px-6 py-5">
+      <main className="flex flex-1 flex-col items-center justify-center px-6 py-12">
         <Link
           href="/"
-          className="flex items-center gap-2.5 no-underline"
-          aria-label="Serna Educational Services home"
+          aria-label={`${brandName} home`}
+          className="mb-7 inline-flex items-center justify-center gap-2.5 no-underline"
         >
-          <span
-            aria-hidden
-            className="grid h-9 w-9 place-items-center rounded-[10px] bg-gradient-to-br from-violet to-indigo font-display text-[17px] font-extrabold text-white"
-          >
-            S
-          </span>
-          <span className="font-display text-base font-bold text-ink">
-            Serna Educational Services
-          </span>
+          {logoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={logoUrl}
+              alt={brandName}
+              height={40}
+              className="h-10 w-auto max-w-[240px] object-contain"
+            />
+          ) : (
+            <>
+              <span
+                aria-hidden
+                className="grid h-10 w-10 place-items-center rounded-[11px] bg-gradient-to-br from-violet to-indigo font-display text-lg font-extrabold text-white"
+              >
+                {markLetter}
+              </span>
+              <span className="font-display text-lg font-bold text-ink">{brandName}</span>
+            </>
+          )}
         </Link>
-      </div>
-      <main className="flex flex-1 items-start justify-center px-6 pb-16 pt-4 sm:items-center">
-        {children}
+        <div className="flex w-full justify-center">{children}</div>
       </main>
     </div>
   );

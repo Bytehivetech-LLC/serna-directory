@@ -60,6 +60,7 @@ export default async function WebLayout({
       <SiteFooter
         brandName={brandName}
         markLetter={markLetter}
+        logoUrl={logoUrl}
         footerText={footerText}
         nav={footerNav.length ? footerNav : undefined}
       />
