@@ -108,6 +108,7 @@ function BrandingTab({ settings }: { settings: SettingsMap }) {
     footer_text: str(settings, "footer_text"),
   });
   const [logoUrl, setLogoUrl] = useState(str(settings, "logo_url"));
+  const [faviconUrl, setFaviconUrl] = useState(str(settings, "favicon_url"));
   const set = <K extends keyof typeof f>(k: K, v: string) => setF((p) => ({ ...p, [k]: v }));
 
   async function upload(kind: "logo" | "favicon", file: File) {
@@ -119,7 +120,11 @@ function BrandingTab({ settings }: { settings: SettingsMap }) {
     if (error) return toast.error("Upload failed.");
     run(async () => {
       const res = await setBrandingImageAction(kind, signed.path);
-      if (res.ok && kind === "logo") setLogoUrl(supabase.storage.from("site-assets").getPublicUrl(signed.path).data.publicUrl);
+      if (res.ok) {
+        const url = supabase.storage.from("site-assets").getPublicUrl(signed.path).data.publicUrl;
+        if (kind === "logo") setLogoUrl(url);
+        else setFaviconUrl(url);
+      }
       return res;
     });
   }
@@ -145,10 +150,20 @@ function BrandingTab({ settings }: { settings: SettingsMap }) {
             </Field>
           </div>
           <Field label="Favicon">
-            <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm font-semibold hover:bg-secondary">
-              <Upload className="h-4 w-4" /> Upload favicon
-              <input type="file" accept="image/png,image/x-icon,image/svg+xml" className="hidden" onChange={(e) => { const file = e.target.files?.[0]; if (file) void upload("favicon", file); }} />
-            </label>
+            <div className="flex items-center gap-3">
+              {faviconUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={faviconUrl} alt="Current favicon" className="h-8 w-8 rounded border border-border bg-secondary object-contain p-1" />
+              ) : null}
+              <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm font-semibold hover:bg-secondary">
+                <Upload className="h-4 w-4" /> Upload favicon
+                <input type="file" accept="image/png,image/x-icon,image/svg+xml" className="hidden" onChange={(e) => { const file = e.target.files?.[0]; if (file) void upload("favicon", file); }} />
+              </label>
+            </div>
+            <p className="mt-1.5 text-xs text-muted-foreground">
+              PNG, ICO, or SVG. Browsers cache favicons hard — after saving you may
+              need a hard refresh (Ctrl/Cmd+Shift+R) to see the new one in your tab.
+            </p>
           </Field>
         </div>
       </SectionCard>

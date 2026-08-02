@@ -5,16 +5,45 @@ import { fontBricolage, fontInter } from "@/lib/fonts";
 import { getTheme, getDraftTheme } from "@/lib/theme/get-theme";
 import { getUserRole } from "@/lib/auth/guards";
 import { toCssVars } from "@/lib/theme/to-css-vars";
+import { getSettingWithMeta } from "@/lib/settings";
 import { Toaster } from "@/components/ui/sonner";
 
-export const metadata: Metadata = {
-  title: {
-    default: "Serna Educational Services Directory",
-    template: "%s · Serna Educational Services",
-  },
-  description:
-    "Find Arizona homeschool tutors, co-ops, micro-schools, and enrichment programs — and list your own business for families to discover.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  // Serve the admin-uploaded favicon through Next metadata (not just storage).
+  // Favicons cache hard, so bust with ?v=<updated_at> — the usual reason a new
+  // one "doesn't take". Falls back to the static /favicon.ico.
+  const { value, updatedAt } = await getSettingWithMeta("favicon_url");
+  const faviconUrl = typeof value === "string" && value.trim() ? value.trim() : null;
+
+  let icons: Metadata["icons"];
+  if (faviconUrl) {
+    const v = encodeURIComponent(updatedAt ?? "1");
+    const bust = `${faviconUrl}${faviconUrl.includes("?") ? "&" : "?"}v=${v}`;
+    const type = faviconUrl.endsWith(".svg")
+      ? "image/svg+xml"
+      : faviconUrl.endsWith(".png")
+        ? "image/png"
+        : faviconUrl.endsWith(".ico")
+          ? "image/x-icon"
+          : undefined;
+    icons = {
+      icon: [{ url: bust, ...(type ? { type } : {}) }],
+      apple: [{ url: bust }],
+    };
+  } else {
+    icons = { icon: "/favicon.ico" };
+  }
+
+  return {
+    title: {
+      default: "Serna Educational Services Directory",
+      template: "%s · Serna Educational Services",
+    },
+    description:
+      "Find Arizona homeschool tutors, co-ops, micro-schools, and enrichment programs — and list your own business for families to discover.",
+    icons,
+  };
+}
 
 export default async function RootLayout({
   children,
