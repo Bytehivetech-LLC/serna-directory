@@ -366,32 +366,51 @@ export type EnrollResult = {
 };
 
 export async function enrollTotpAction(): Promise<EnrollResult> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { ok: false, error: "Please sign in again." };
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return { ok: false, error: "Please sign in again." };
 
-  // Clear any half-finished enrolment so a retry always works.
-  const { data: factors } = await supabase.auth.mfa.listFactors();
-  const stale = factors?.all?.find(
-    (f) => f.factor_type === "totp" && f.status === "unverified",
-  );
-  if (stale) await supabase.auth.mfa.unenroll({ factorId: stale.id });
+    // Clear any half-finished enrolment so a retry always works.
+    const { data: factors } = await supabase.auth.mfa.listFactors();
+    const stale = factors?.all?.find(
+      (f) => f.factor_type === "totp" && f.status === "unverified",
+    );
+    if (stale) await supabase.auth.mfa.unenroll({ factorId: stale.id });
 
-  const { data, error } = await supabase.auth.mfa.enroll({
-    factorType: "totp",
-    friendlyName: `Authenticator ${Date.now()}`,
-  });
-  if (error || !data) {
-    return { ok: false, error: error?.message ?? "Couldn't start 2FA setup." };
+    const { data, error } = await supabase.auth.mfa.enroll({
+      factorType: "totp",
+      friendlyName: `Authenticator ${Date.now()}`,
+    });
+    if (error || !data) {
+      // The most common cause is MFA/TOTP being disabled for the Supabase
+      // project (Authentication → Multi-Factor). Say so instead of crashing.
+      const msg = (error?.message ?? "").toLowerCase();
+      if (msg.includes("mfa") || msg.includes("not enabled") || msg.includes("disabled")) {
+        return {
+          ok: false,
+          error:
+            "Two-factor isn't enabled for this project yet. An admin needs to turn on TOTP under Supabase → Authentication → Multi-Factor.",
+        };
+      }
+      return { ok: false, error: error?.message ?? "Couldn't start 2FA setup." };
+    }
+    return {
+      ok: true,
+      factorId: data.id,
+      qr: data.totp.qr_code,
+      secret: data.totp.secret,
+    };
+  } catch (e) {
+    console.error("[mfa] enroll threw:", e);
+    return {
+      ok: false,
+      error:
+        "Couldn't start 2FA setup. If this keeps happening, an admin may need to enable TOTP in Supabase → Authentication → Multi-Factor.",
+    };
   }
-  return {
-    ok: true,
-    factorId: data.id,
-    qr: data.totp.qr_code,
-    secret: data.totp.secret,
-  };
 }
 
 export async function verifyTotpAction(
