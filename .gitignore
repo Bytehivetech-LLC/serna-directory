@@ -41,6 +41,9 @@ yarn-error.log*
 # local secrets scratch file (never read, never commit)
 keys.txt
 
+# machine-specific Claude Code permission state (keep launch.json tracked)
+.claude/settings.local.json
+
 # vercel
 .vercel
 

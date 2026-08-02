@@ -1,35 +1,39 @@
 import type { Metadata } from "next";
 import { PageContainer } from "@/components/layout/page-container";
-import { PageHeading } from "@/components/layout/page-heading";
-import { SectionCard } from "@/components/layout/section-card";
+import { getListFormConfig } from "@/lib/list-form/queries";
+import { getSettings } from "@/lib/settings";
+import { ListingForm } from "@/components/list-form/listing-form";
 
-export const metadata: Metadata = {
-  title: "List your business",
-};
+export const metadata: Metadata = { title: "List your business" };
 
-export default function ListAProgramPage() {
+export default async function ListAProgramPage() {
+  const [config, settings] = await Promise.all([
+    getListFormConfig(),
+    getSettings(["google_maps_browser_key"]),
+  ]);
+  const mapsKey =
+    typeof settings.google_maps_browser_key === "string"
+      ? settings.google_maps_browser_key.trim() || undefined
+      : undefined;
+
   return (
     <PageContainer width="narrow" className="py-12">
-      <PageHeading
-        title="List your business"
-        lede={
-          <>
-            Tell families what you offer.{" "}
-            <b>Your listing goes live instantly with a shareable link.</b> Free
-            to start, no card required.
-          </>
-        }
-      />
-      <SectionCard
-        className="mt-8"
-        title="The submission form is coming next"
-        description="This is the scaffolded shell. The full multi-step listing form arrives in a later phase."
-      >
-        <p className="text-sm text-muted-foreground">
-          Category picker, business details, photos, tags, and the
-          Free/Featured choice will live here.
+      <div className="mb-6">
+        <h1 className="font-display text-3xl font-extrabold leading-[1.08] tracking-[-0.015em] text-ink sm:text-[42px]">
+          List your business
+        </h1>
+        <p className="mt-3.5 max-w-[60ch] text-base text-muted-foreground">
+          Tell families what you offer.{" "}
+          <b className="text-ink">
+            Your listing goes live instantly with a shareable link
+          </b>{" "}
+          — it won&apos;t appear in directory search until our team gives it a
+          quick look, but you can share it right away. Free to start, no card
+          required.
         </p>
-      </SectionCard>
+      </div>
+
+      <ListingForm config={config} mapsKey={mapsKey} />
     </PageContainer>
   );
 }
