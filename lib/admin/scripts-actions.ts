@@ -120,7 +120,7 @@ export async function createCustomScriptAction(input: unknown): Promise<AdminAct
 
   await logAudit({ action: "script.create_custom", entityType: "site_script", meta: { name: d.name } });
   await afterChange(admin);
-  return { ok: true, message: "Script saved (inactive)." };
+  return { ok: true, message: "Saved. Not yet active — turn it on when you're ready." };
 }
 
 export async function updateCustomScriptAction(id: string, input: unknown): Promise<AdminActionResult> {
