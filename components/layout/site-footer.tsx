@@ -1,8 +1,12 @@
 import Link from "next/link";
 import type { NavItem } from "./site-header";
+import { ConsentReopenLink } from "@/components/consent/consent-banner";
 
 export type SiteFooterProps = {
   nav?: NavItem[];
+  brandName?: string;
+  markLetter?: string;
+  footerText?: string;
 };
 
 const DEFAULT_FOOTER_NAV: NavItem[] = [
@@ -11,7 +15,12 @@ const DEFAULT_FOOTER_NAV: NavItem[] = [
   { label: "Log in", href: "/login" },
 ];
 
-export function SiteFooter({ nav = DEFAULT_FOOTER_NAV }: SiteFooterProps) {
+export function SiteFooter({
+  nav = DEFAULT_FOOTER_NAV,
+  brandName = "Serna Educational Services",
+  markLetter = "S",
+  footerText,
+}: SiteFooterProps) {
   const year = 2026;
   return (
     <footer className="mt-auto border-t border-border bg-card">
@@ -21,11 +30,9 @@ export function SiteFooter({ nav = DEFAULT_FOOTER_NAV }: SiteFooterProps) {
             aria-hidden
             className="grid h-8 w-8 place-items-center rounded-[9px] bg-gradient-to-br from-violet to-indigo font-display text-sm font-extrabold text-white"
           >
-            S
+            {markLetter}
           </span>
-          <span className="font-display text-sm font-bold text-ink">
-            Serna Educational Services
-          </span>
+          <span className="font-display text-sm font-bold text-ink">{brandName}</span>
         </div>
 
         <nav className="flex flex-wrap items-center gap-x-6 gap-y-2">
@@ -38,12 +45,14 @@ export function SiteFooter({ nav = DEFAULT_FOOTER_NAV }: SiteFooterProps) {
               {item.label}
             </Link>
           ))}
+          <ConsentReopenLink className="text-sm font-medium text-muted-foreground transition-colors hover:text-indigo" />
         </nav>
       </div>
       <div className="border-t border-border">
         <p className="mx-auto max-w-[1060px] px-6 py-4 text-xs text-faint">
-          © {year} Serna Educational Services. Arizona homeschool &amp; education
-          directory.
+          {footerText && footerText.trim()
+            ? footerText
+            : `© ${year} ${brandName}. Arizona homeschool & education directory.`}
         </p>
       </div>
     </footer>

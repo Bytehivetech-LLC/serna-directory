@@ -1,6 +1,7 @@
 import "server-only";
 import { cache } from "react";
 import { createClient } from "@supabase/supabase-js";
+import { createClient as createServerClient } from "@/lib/supabase/server";
 import { defaultTheme, type Theme } from "./defaults";
 
 /**
@@ -8,7 +9,7 @@ import { defaultTheme, type Theme } from "./defaults";
  * Only string values for known keys are accepted; everything else is ignored,
  * so a partial or partly-corrupt row still yields a complete, valid Theme.
  */
-function mergeTheme(base: Theme, overrides: Record<string, unknown>): Theme {
+export function mergeTheme(base: Theme, overrides: Record<string, unknown>): Theme {
   const out: Theme = { ...base };
   for (const key of Object.keys(base) as (keyof Theme)[]) {
     const value = overrides[key];
@@ -49,5 +50,27 @@ export const getTheme = cache(async (): Promise<Theme> => {
     return mergeTheme(defaultTheme, data.value as Record<string, unknown>);
   } catch {
     return defaultTheme;
+  }
+});
+
+/**
+ * The DRAFT theme, for the admin-only live preview (?theme=draft). Read with the
+ * caller's own session (RLS) — only staff/admins can read the non-public
+ * `theme_draft` row. Falls back to the published theme when there's no draft.
+ */
+export const getDraftTheme = cache(async (): Promise<Theme> => {
+  try {
+    const supabase = await createServerClient();
+    const { data } = await supabase
+      .from("site_settings")
+      .select("value")
+      .eq("key", "theme_draft")
+      .maybeSingle();
+    if (!data || typeof data.value !== "object" || data.value === null) {
+      return getTheme();
+    }
+    return mergeTheme(defaultTheme, data.value as Record<string, unknown>);
+  } catch {
+    return getTheme();
   }
 });

@@ -1,20 +1,30 @@
 import "server-only";
+import { getRecaptchaSecret, markIntegrationSuccess } from "@/lib/secrets/resolve";
 
-export type RecaptchaResult = { ok: boolean; reason?: string };
+export type RecaptchaResult = {
+  ok: boolean;
+  reason?: string;
+  score?: number;
+  /** True in the hold band — the caller should route to manual review, not reject. */
+  review?: boolean;
+};
 
 /**
  * Verify a reCAPTCHA v3 token server-side.
  *
- * If RECAPTCHA_SECRET_KEY isn't configured (e.g. local dev), verification is
- * skipped rather than blocking the flow. On a network error we also don't hard
- * block — a reCAPTCHA outage shouldn't stop legitimate sign-ups.
+ * Score bands: `>= minScore` passes; `[reviewScore, minScore)` passes but sets
+ * `review` so the caller can hold it for a human instead of rejecting a possibly-
+ * legitimate visitor; `< reviewScore` is rejected. If reCAPTCHA isn't configured
+ * or the API is unreachable, we don't hard-block — an outage shouldn't stop
+ * legitimate sign-ups.
  */
 export async function verifyRecaptcha(
   token: string | undefined,
   action: string,
   minScore = 0.5,
+  reviewScore = 0.3,
 ): Promise<RecaptchaResult> {
-  const secret = process.env.RECAPTCHA_SECRET_KEY;
+  const secret = await getRecaptchaSecret();
   if (!secret) return { ok: true };
   if (!token) return { ok: false, reason: "Verification failed. Please try again." };
 
@@ -33,11 +43,14 @@ export async function verifyRecaptcha(
     if (!data.success) {
       return { ok: false, reason: "Verification failed. Please try again." };
     }
-    if (typeof data.score === "number" && data.score < minScore) {
-      return { ok: false, reason: "Verification failed. Please try again." };
-    }
     if (data.action && data.action !== action) {
       return { ok: false, reason: "Verification failed. Please try again." };
+    }
+    const score = data.score;
+    if (typeof score === "number") {
+      if (score < reviewScore) return { ok: false, reason: "Verification failed. Please try again.", score };
+      if (score < minScore) return { ok: true, review: true, score };
+      return { ok: true, score };
     }
     return { ok: true };
   } catch {

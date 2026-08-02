@@ -3,6 +3,7 @@ import { requireUser, getProfile } from "@/lib/auth/guards";
 import { createClient } from "@/lib/supabase/server";
 import { PageHeading } from "@/components/layout/page-heading";
 import { SectionCard } from "@/components/layout/section-card";
+import { EmailPreferences } from "@/components/dashboard/email-preferences";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ProfileForm } from "@/components/dashboard/profile-form";
 import { ChangePasswordForm } from "@/components/dashboard/change-password-form";
@@ -71,6 +72,12 @@ export default async function ProfilePage({
         <MfaSection
           initialEnrolled={Boolean(verifiedTotp)}
           initialFactorId={verifiedTotp?.id}
+        />
+      </SectionCard>
+
+      <SectionCard title="Email preferences" description="Choose which optional emails you receive.">
+        <EmailPreferences
+          initialOptOut={Array.isArray(profile?.email_opt_out) ? (profile!.email_opt_out as string[]) : []}
         />
       </SectionCard>
     </div>

@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { updateSession } from "@/lib/supabase/middleware";
+import { GUIDED_HOSTS } from "@/lib/scripts/providers";
 
 /**
  * One repo, two deployments (APP_TARGET). This middleware:
@@ -37,6 +38,8 @@ function contentSecurityPolicy(): string {
       "https://maps.googleapis.com",
       "https://www.google.com",
       "https://www.gstatic.com",
+      // Guided analytics/marketing tags (only relevant on the public site).
+      ...(APP_TARGET === "web" ? GUIDED_HOSTS : []),
     ],
     "style-src": ["'self'", "'unsafe-inline'"], // Tailwind + injected theme <style>
     "img-src": [
@@ -104,6 +107,19 @@ export async function middleware(request: NextRequest) {
   if (APP_TARGET === "web") {
     if (isAdminPath(pathname)) {
       return applySecurityHeaders(notFound(response));
+    }
+    // Theme-draft preview: set/clear a cookie the root layout reads. The layout
+    // only honours it for signed-in admins, so this is a harmless hint.
+    const themeParam = request.nextUrl.searchParams.get("theme");
+    if (themeParam === "draft") {
+      response.cookies.set("serna-theme-preview", "draft", {
+        path: "/",
+        sameSite: "lax",
+        httpOnly: true,
+        maxAge: 60 * 60,
+      });
+    } else if (themeParam === "live") {
+      response.cookies.delete("serna-theme-preview");
     }
     return applySecurityHeaders(response);
   }

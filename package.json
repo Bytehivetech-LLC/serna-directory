@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "generate:secret-key": "node scripts/generate-secret-key.mjs",
+    "test": "node --test scripts/injector.test.mjs"
   },
   "dependencies": {
     "@googlemaps/markerclusterer": "^2.6.2",

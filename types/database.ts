@@ -981,6 +981,7 @@ export type Database = {
           business_address: string | null;
           notes: string | null;
           last_seen_at: string | null;
+          email_opt_out: Json;
           deleted_at: string | null;
           created_at: string;
           updated_at: string;
@@ -999,6 +1000,7 @@ export type Database = {
           business_address?: string | null;
           notes?: string | null;
           last_seen_at?: string | null;
+          email_opt_out?: Json;
           deleted_at?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -1017,6 +1019,7 @@ export type Database = {
           business_address?: string | null;
           notes?: string | null;
           last_seen_at?: string | null;
+          email_opt_out?: Json;
           deleted_at?: string | null;
           created_at?: string;
           updated_at?: string;

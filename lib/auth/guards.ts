@@ -125,6 +125,51 @@ export async function requireAdmin(): Promise<{
   return { user: session.user, role, profile };
 }
 
+/* ------------------------------------------------------------------- MFA -- */
+
+const MFA_METHODS = new Set(["totp", "mfa", "otp", "webauthn", "phone"]);
+const RECENT_MFA_WINDOW_SECONDS = 15 * 60;
+
+/**
+ * Require that the current admin completed an MFA challenge within the last 15
+ * minutes before a high-risk action (writing a secret). Returns:
+ *   ok            — a recent MFA challenge is on the session
+ *   mfa_required  — the admin has a verified factor but hasn't challenged lately
+ *   ok (no factor)— the admin has no MFA factor, so we can't challenge; allowed
+ *
+ * The client uses `mfa_required` to prompt for a code, elevate the session, and
+ * retry. Reusable across every secret-write action.
+ */
+export async function requireRecentMFA(): Promise<{ ok: boolean; reason: "ok" | "mfa_required" }> {
+  const session = await getSession();
+  if (!session?.access_token) return { ok: false, reason: "mfa_required" };
+
+  const payload = decodeJwtPayload(session.access_token);
+  const amr = Array.isArray(payload?.["amr"]) ? (payload!["amr"] as unknown[]) : [];
+  const nowSec = Math.floor(Date.now() / 1000);
+  const recent = amr.some((entry) => {
+    if (!entry || typeof entry !== "object") return false;
+    const e = entry as { method?: unknown; timestamp?: unknown };
+    return (
+      typeof e.method === "string" &&
+      MFA_METHODS.has(e.method) &&
+      typeof e.timestamp === "number" &&
+      nowSec - e.timestamp <= RECENT_MFA_WINDOW_SECONDS
+    );
+  });
+  if (recent) return { ok: true, reason: "ok" };
+
+  // No recent MFA — but only *require* it if a verified factor exists.
+  try {
+    const supabase = await createClient();
+    const { data } = await supabase.auth.mfa.listFactors();
+    const hasVerified = (data?.totp ?? []).some((f) => f.status === "verified");
+    return hasVerified ? { ok: false, reason: "mfa_required" } : { ok: true, reason: "ok" };
+  } catch {
+    return { ok: true, reason: "ok" };
+  }
+}
+
 /** Convenience booleans built on the same JWT claim. */
 export async function isAdmin(): Promise<boolean> {
   return (await getUserRole()) === "admin";

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { MapPin, Star } from "lucide-react";
 import type { DirectoryListing } from "@/lib/directory/types";
 import { cn } from "@/lib/utils/cn";
@@ -26,12 +27,12 @@ export function ListingTile({
     >
       <div className="relative aspect-video overflow-hidden bg-gradient-to-br from-violet-soft to-secondary">
         {listing.coverUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
+          <Image
             src={listing.coverUrl}
             alt=""
-            loading="lazy"
-            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+            fill
+            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 400px"
+            className="object-cover transition-transform duration-300 group-hover:scale-[1.03]"
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center">

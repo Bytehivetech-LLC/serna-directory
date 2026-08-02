@@ -67,8 +67,21 @@ export default async function DirectoryHomePage({
       ? settings.hero_subtitle
       : "Tutors, co-ops, micro schools and more across Arizona.";
 
+  const base = process.env.NEXT_PUBLIC_SITE_URL ?? "";
+  const itemListLd = {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    itemListElement: result.listings.slice(0, 24).map((l, i) => ({
+      "@type": "ListItem",
+      position: i + 1,
+      url: `${base}/listing/${l.slug}`,
+      name: l.businessName,
+    })),
+  };
+
   return (
     <PageContainer className="max-w-[1280px] py-8">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(itemListLd) }} />
       <div className="mb-6 max-w-2xl">
         <h1 className="font-display text-3xl font-extrabold leading-[1.08] tracking-[-0.015em] text-ink sm:text-4xl">
           {heroTitle}

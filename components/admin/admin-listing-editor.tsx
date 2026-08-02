@@ -21,11 +21,20 @@ import {
   unpublishListingAction,
   softDeleteListingAction,
   restoreListingAction,
+  permanentDeleteListingAction,
   reassignOwnerAction,
   signAdminListingUploadsAction,
   deleteAdminListingImageAction,
   setAdminCoverImageAction,
 } from "@/lib/admin/listing-actions";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import type { AdminActionResult } from "@/lib/admin/users-actions";
 
 type Lookup = { id: string; name: string };
@@ -91,6 +100,8 @@ export function AdminListingEditor({
   const [newImages, setNewImages] = useState<ProcessedImage[]>([]);
   const [existing, setExisting] = useState<ExistingImage[]>(images);
   const [newOwner, setNewOwner] = useState("");
+  const [permOpen, setPermOpen] = useState(false);
+  const [permConfirm, setPermConfirm] = useState("");
 
   const set = (k: keyof typeof form, v: string | boolean) =>
     setForm((f) => ({ ...f, [k]: v }));
@@ -429,14 +440,24 @@ export function AdminListingEditor({
               <EyeOff className="h-4 w-4" /> Unpublish
             </Button>
             {listing.deleted_at ? (
-              <Button
-                variant="outline"
-                className="justify-start"
-                disabled={pending}
-                onClick={() => run(() => restoreListingAction(listing.id))}
-              >
-                <RotateCcw className="h-4 w-4" /> Restore
-              </Button>
+              <>
+                <Button
+                  variant="outline"
+                  className="justify-start"
+                  disabled={pending}
+                  onClick={() => run(() => restoreListingAction(listing.id))}
+                >
+                  <RotateCcw className="h-4 w-4" /> Restore
+                </Button>
+                <Button
+                  variant="outline"
+                  className="justify-start border-danger/40 text-danger hover:bg-danger-soft hover:text-danger"
+                  disabled={pending}
+                  onClick={() => setPermOpen(true)}
+                >
+                  <Trash2 className="h-4 w-4" /> Delete permanently
+                </Button>
+              </>
             ) : (
               <Button
                 variant="outline"
@@ -480,6 +501,35 @@ export function AdminListingEditor({
           </div>
         </SectionCard>
       </div>
+
+      <Dialog open={permOpen} onOpenChange={setPermOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-display">Delete permanently?</DialogTitle>
+            <DialogDescription>
+              This erases <b className="text-ink">{listing.business_name}</b> and its photos for good. The files will be removed from storage and this cannot be undone. Type{" "}
+              <b className="text-ink">DELETE PERMANENTLY</b> to confirm.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-1.5">
+            <Label htmlFor="perm-confirm">Confirmation</Label>
+            <Input id="perm-confirm" value={permConfirm} onChange={(e) => setPermConfirm(e.target.value)} placeholder="DELETE PERMANENTLY" autoComplete="off" />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPermOpen(false)}>Cancel</Button>
+            <Button
+              variant="destructive"
+              disabled={permConfirm !== "DELETE PERMANENTLY" || pending}
+              onClick={() => {
+                setPermOpen(false);
+                run(() => permanentDeleteListingAction(listing.id, permConfirm), () => router.push("/admin/listings"));
+              }}
+            >
+              Delete permanently
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

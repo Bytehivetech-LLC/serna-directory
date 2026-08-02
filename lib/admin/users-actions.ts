@@ -8,6 +8,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { logAudit } from "@/lib/audit/log";
 import { sendEmail } from "@/lib/email/sendgrid";
+import { enqueueAssetDeletion, pathFromPublicUrl } from "@/lib/assets/lifecycle";
 import { hasActivePaidListings } from "./queries";
 
 export type AdminActionResult =
@@ -357,7 +358,7 @@ export async function softDeleteUserAction(
   const admin = createAdminClient();
   const { data: before } = await admin
     .from("profiles")
-    .select("email, is_suspended, deleted_at")
+    .select("email, is_suspended, deleted_at, avatar_url")
     .eq("id", id)
     .maybeSingle();
   if (!before) return { ok: false, error: "That user no longer exists." };
@@ -371,6 +372,10 @@ export async function softDeleteUserAction(
     .update({ deleted_at: nowIso, is_suspended: true })
     .eq("id", id);
   if (error) return { ok: false, error: "Couldn't delete that account." };
+
+  // Queue their avatar for removal.
+  const avatarPath = pathFromPublicUrl(before.avatar_url, "avatars");
+  if (avatarPath) await enqueueAssetDeletion(admin, "avatars", avatarPath, "user_deleted");
 
   await logAudit({
     action: "user.delete",

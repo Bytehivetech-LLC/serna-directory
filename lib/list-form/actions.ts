@@ -10,6 +10,7 @@ import { slugify } from "@/lib/utils/slug";
 import { geocodeAddress } from "@/lib/geo/geocode";
 import { getSettings } from "@/lib/settings";
 import { sendTemplateEmail } from "@/lib/email/send";
+import { sendAdminAlert } from "@/lib/email/admin-alerts";
 import { zodErrorToFieldErrors } from "@/lib/forms";
 import { getStripe } from "@/lib/stripe/client";
 import { listingSubmitSchema, type ListingSubmitInput } from "./submit-schema";
@@ -83,6 +84,7 @@ async function buildAddonCheckout(
   ownerEmail: string,
   listingId: string,
   listingSlug: string,
+  packageId: string | null,
   selections: { addonId: string; quantity: number }[],
   origin: string,
 ): Promise<string | null> {
@@ -93,7 +95,7 @@ async function buildAddonCheckout(
   const ids = selections.map((s) => s.addonId);
   const { data: addons } = await admin
     .from("addons")
-    .select("id, price_cents, interval, stripe_price_id, is_active, is_public, max_quantity")
+    .select("id, price_cents, interval, stripe_price_id, is_active, is_public, max_quantity, package_ids")
     .in("id", ids);
   const byId = new Map((addons ?? []).map((a) => [a.id, a]));
 
@@ -101,6 +103,9 @@ async function buildAddonCheckout(
   for (const s of selections) {
     const a = byId.get(s.addonId);
     if (!a || !a.is_active || !a.is_public || a.price_cents <= 0 || !a.stripe_price_id) continue;
+    // Server-side availability guard: skip add-ons not allowed with this package.
+    const allowed = Array.isArray(a.package_ids) ? a.package_ids : [];
+    if (allowed.length > 0 && (!packageId || !allowed.includes(packageId))) continue;
     items.push({ addon: a, quantity: Math.min(s.quantity, a.max_quantity) });
   }
   if (!items.length) return null;
@@ -417,6 +422,14 @@ export async function submitListingAction(
     },
   });
 
+  // Alert the team when something lands in the review queue.
+  if (status === "pending_review") {
+    await sendAdminAlert("admin_listing_pending", {
+      owner_name: data.core.contact_name,
+      listing_name: data.core.business_name,
+    });
+  }
+
   // Add-ons: create a checkout to pay for any selected extras.
   const checkoutUrl = await buildAddonCheckout(
     admin,
@@ -424,6 +437,7 @@ export async function submitListingAction(
     email,
     listing.id,
     listing.slug ?? slug,
+    pkg.id,
     data.addons,
     origin,
   );

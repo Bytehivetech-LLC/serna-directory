@@ -111,8 +111,198 @@ Never read `.env.local` or `keys.txt`.
   **6 — Listing form**, **7 — Accounts & email**, **8 — Stripe**,
   **9 — Owner dashboard**, **10 — Admin shell & users**,
   **11 — Admin listings & moderation**, **12 — Admin packages & Stripe**,
-  **13 — Add-on products**, **14 — Admin categories & tags**
-- Next phase: **15** (per `docs/04-CLAUDE-PROMPTS.md`)
+  **13 — Add-on products**, **14 — Admin categories & tags**,
+  **15 — Form builder, settings, menu, branding**,
+  **16 — Email studio & asset lifecycle**,
+  **17 — Integrations, secrets & custom scripts**,
+  **18 — Hardening, SEO & launch**
+- Next phase: **complete** (Phase 18 was the final launch pass)
+- Phase 18 notes:
+  - **SEO**: `app/sitemap.ts` (home/categories/cities/published listings, admin
+    host emits none), `app/robots.ts` (admin → disallow all; web → allow +
+    sitemap), directory `generateMetadata` already sets a canonical, **ItemList
+    JSON-LD** on the directory, LocalBusiness JSON-LD already on listings.
+    `next.config.ts` image `remotePatterns` (Supabase public objects + Google
+    avatars); directory tiles now use **next/image** (`fill` + `sizes`).
+  - **Reliability**: `/api/cron/daily` extended (`lib/cron/daily-tasks.ts`) —
+    featured-expiry, 14-day listing renewal reminders, category-count refresh,
+    rate-limit prune, and **integration health checks** (maps geocode; sendgrid/
+    recaptcha presence) that stamp `last_success_at`/`last_error_*` so a dead key
+    shows in the panel. `vercel.json` schedules daily 08:00 / weekly Mon 09:00
+    (Vercel sends `CRON_SECRET` as the Bearer automatically). Brand-voice
+    `app/error.tsx` + `app/global-error.tsx`; `lib/observability/report.ts`
+    scrubs emails/tokens before logging (Sentry is a one-file wire-up from there).
+    `docs/RUNBOOK.md` covers restore/replay-webhook/reset-admin/rotate-keys/
+    backup/drain-queue.
+  - **Security**: add-on **package availability enforced server-side** in both
+    the extras checkout and the submit flow (an add-on restricted to other
+    packages is refused no matter what the browser sends — the Check-it).
+    reCAPTCHA now has a **review band** (`>=min` pass, `[review,min)` pass +
+    `review:true`, `<review` reject). External listing links get
+    `rel="noopener noreferrer nofollow"`. Rate limits added to **/api/upload-url**
+    (120/hr/user) and **register** (5/15min/IP), joining the existing login/
+    submit/inquiry/password-reset limits. `docs/tests/rls-tests.sql` is the
+    anon + non-owner negative-test script. The raw `SUPABASE_SERVICE_ROLE_KEY`
+    is referenced only in `lib/supabase/admin.ts`.
+  - **Perf/a11y**: map bundle is **lazy-loaded** (`LazyListingMap` via
+    next/dynamic, `ssr:false`); `prefers-reduced-motion` was already a global
+    reset. Consent gating + script-injector guard (Phase 17) unchanged.
+  - **`npm test`** runs the script-injector invariant (never renders on admin).
+- Phase 17 notes:
+  - **A — secrets**: `lib/secrets/crypto.ts` AES-256-GCM (server-only, key from
+    `SECRETS_ENCRYPTION_KEY` base64/32-byte, format `base64(iv|tag|ct)`, throws at
+    load if the key is bad). `npm run generate:secret-key`. `lib/secrets/resolve.ts`
+    reads `integration_settings` with the **service-role** client, decrypts in
+    memory, **DB-value-first then env fallback**, `cache()` per request, and
+    **never throws a page** (decrypt fail → env + `last_error_message` + warn).
+    Narrow helpers: `getSendgridKey/getSendgridFrom/getRecaptchaSecret/
+    getRecaptchaPublicConfig/getMapsPublicConfig`. Email `sendgrid.ts` and the
+    reCAPTCHA verifier now call these (env is only the fallback). **The Check-it's
+    "delete env, email still sends" comes from this.** `requireRecentMFA()` guard
+    (decodes the session `amr`; 15-min window) gates secret writes.
+  - **B — `/admin/settings → Integrations`**: SendGrid / reCAPTCHA / Maps / Stripe
+    cards (`components/admin/settings/integrations-tab.tsx`). Status pill, last
+    used/error, key shown as **hint only ("ends …a8Fq · updated …") with Replace —
+    never a reveal**. Secret writes go through `useSecretSave` which, on
+    `mfaRequired`, prompts for a TOTP code, elevates the session in the browser,
+    and retries. Actions (`lib/admin/integrations-actions.ts`) requireAdmin +
+    requireRecentMFA + shape validation (SG. / 40-char) + audit that a secret
+    **changed, never its value**. **The client never receives a decrypted secret.**
+    Stripe secret is read-only ("Managed in Vercel").
+  - **C — `/admin/settings → Scripts`**: **Guided** (GA4/GTM/Meta/Clarity/Hotjar/
+    LinkedIn/TikTok — paste an ID, `lib/scripts/providers.ts` validates it and
+    generates the official snippet server-side) + **Custom code** (one-time "I
+    understand" ack, saved **inactive**). `ScriptInjector`
+    (`components/layout/script-injector.tsx`) renders active scripts into the
+    **public layout only** — self-guards on `APP_TARGET`, asserted in
+    `scripts/injector.test.mjs` (`npm test`). `applies_to` scopes pages; consent
+    gates non-essential. **DB trigger** (migration `20260803130000`) rejects
+    `document.cookie`/storage/`eval`/`Function` — **the Check-it's rejection**;
+    the action checks the same patterns first. CSP `script-src` folds in
+    `GUIDED_HOSTS`; custom hosts accumulate into the `script_hosts` setting.
+  - **D — consent banner** (`components/consent/consent-banner.tsx`): Accept /
+    Reject / Preferences with **Reject as prominent as Accept**, remembered in the
+    `serna-consent` cookie, gating analytics/marketing until accepted, with a
+    footer "Cookie preferences" reopen link. Toggled by the
+    `consent_banner_enabled` setting (switch on the Scripts tab).
+  - **E** — `docs/INTEGRATIONS.md` (where keys live, rotation, recovery).
+  - **Deliberately minimal / deferred** (documented): custom-script `external_hosts`
+    are collected into the `script_hosts` setting but the middleware CSP currently
+    folds in only the static `GUIDED_HOSTS` union (per-request DB reads in edge
+    middleware were avoided) — wiring the stored hosts into the CSP is the
+    follow-up; head-slot scripts render at the top of the public body (not literal
+    `<head>`); the custom-code editor is a mono `<textarea>` (no syntax
+    highlighting lib); the Maps "pick centre on a map" is numeric lat/lng/zoom.
+
+### Phase 17 manual setup required
+1. Generate + set `SECRETS_ENCRYPTION_KEY` (`npm run generate:secret-key`) in the
+   environment. Without it, the app runs but **secret writes error** and stored
+   secrets can't be decrypted (resolution falls back to env).
+2. Apply migration `20260803130000_reject_dangerous_scripts.sql` (the DB script
+   guard the Check-it relies on).
+- Phase 16 notes:
+  - **A — email render**: `lib/email/shell.ts` rebuilt as a **600px table**
+    layout (Outlook-safe, no flex/grid), colours from the live theme (`getTheme`)
+    so rebranding rebrands the emails, logo from `site_settings`, a category
+    **status pill**, violet-soft callout w/ left rule, `color-scheme: light` +
+    `supported-color-schemes`. `render.ts`: **markdown-lite** (`**bold**`,
+    `[links](https://…)`, paragraphs); a **missing variable renders the raw
+    `{{key}}` and warns** (never throws); returns `{found, enabled, locked,
+    generic}`. `send.ts` uses that: optional missing/disabled → skip, locked →
+    always send, and honours `profiles.email_opt_out`. `renderShape` is exported
+    for the editor's live preview.
+  - **B — `/admin/emails`**: list grouped by category (enabled switch — disabled
+    on locked, last sent/edited); editor (`components/admin/email/*`) two-pane
+    with a **variable menu** (click-to-insert, sample on hover), **save-time
+    validation** that refuses an unknown `{{var}}` naming it, realistic-sample
+    preview (desktop/mobile iframe + plain-text), **send test**, **revision
+    history** (`email_template_versions`) + one-click revert, **reset to default**
+    (from the code fallback). `/admin/emails/log` filterable by template/status/
+    recipient with the provider error on failures.
+  - **C — wiring**: `lib/email/admin-alerts.ts` → `email_admin_recipients`
+    setting. `admin_listing_pending` fires on submit; **email preferences** on
+    `/dashboard/profile` (`email_opt_out`, migration `20260803120000`) let owners
+    opt out of expiry nudges / welcome / tips only. Comprehensive **code
+    fallbacks** added for every catalogued key so nothing silently skips before
+    the DB seed exists.
+  - **D — asset lifecycle** (`lib/assets/lifecycle.ts`): `/api/cron/daily`
+    (addon expiry + **PURGE** listings past `deletion_grace_days` — cascade +
+    trigger enqueue — + **DRAIN** the queue 100/batch via the Storage API with
+    attempts/last_error/3-strike fail) and `/api/cron/weekly` (**SWEEP**
+    unreferenced `listing-images` objects older than 24h; stamps `last_sweep_at`).
+    Enqueue-on-replace wired for branding logo/favicon, add-on card image, and a
+    deleted user's avatar. Admin listing editor gets **Delete permanently**
+    (typed `DELETE PERMANENTLY`). Admin dashboard gets a **Storage panel** (image
+    bytes, pending, failed, last sweep).
+  - **E** — `docs/EMAILS.md` catalogues every template, trigger, variables, and
+    recipient.
+  - **Deliberately minimal / deferred** (documented): the sweep covers
+    `listing-images` (site-assets/avatars stay tidy via enqueue-on-replace);
+    several C events (welcome, admin_addon_fulfilment, admin_payment_received,
+    subscription_renewed/canceled, listing_edit_pending/unpublished/blocked/
+    expired) have fallbacks + docs but are only wired where the triggering event
+    already existed — the rest are one `sendTemplateEmail`/`sendAdminAlert` call
+    at each new event site.
+
+### Phase 16 manual setup required
+1. Apply migration `20260803120000_profiles_email_opt_out.sql`.
+2. Schedule the crons (Vercel Cron, `Authorization: Bearer $CRON_SECRET`):
+   daily `GET /api/cron/daily`, weekly `GET /api/cron/weekly`. (The old
+   `/api/cron/addons` still works but `daily` supersedes it.)
+3. Optional settings: `deletion_grace_days` (default 30), `email_admin_recipients`.
+- Phase 15 notes:
+  - **A — `/admin/form-builder`**: two-pane (`components/admin/form-builder/*`).
+    Left = sections/fields tree with arrow reorder, section dialog, field editor
+    dialog; right = live `FormPreview` with a **"Preview as category"** selector.
+    Field editor: label/help/placeholder/type/options/required/max-length/strength/
+    show-on-public/category-scope. **Core fields are locked** (relabel/reorder/
+    required only — never type/delete; the lock tooltip explains why). Deleting a
+    custom field only removes the `form_fields` row — **saved values stay in each
+    listing's `custom_fields`**; `fieldUsageAction` reports the count for the
+    warning. Actions revalidate `/list-a-program` — no deploy.
+  - **B — `/admin/settings`** (tabbed):
+    - **Branding**: site name, logo mark letter, logo + favicon upload to
+      `site-assets/branding/`, hero heading/subheading, footer text. The public
+      `(web)/layout.tsx` now reads these + `menu_items` and feeds `SiteHeader`/
+      `SiteFooter` (logo image or mark letter, brand name, nav, footer text).
+    - **Theme**: two-pane editor (`components/admin/settings/theme-editor.tsx`).
+      Controls grouped (Text/Brand/Surfaces/Borders/States/Shape/Type); each
+      colour row = swatch + hex + **EyeDropper** (where supported) + reset-one.
+      Live preview repaints via a **scoped** `:root`→`.theme-preview` block
+      (`toCssVarsScoped`) so the same Tailwind utilities recolour instantly.
+      Edits debounce-save to **`theme_draft`**; **Publish** copies draft→`theme`
+      (revalidate `"/","layout"`); discard/reset confirm. Presets = 3 built-ins
+      (Serna default + Warmer + Higher-contrast) plus user presets in
+      `theme_presets`. **Contrast guard** (`lib/theme/contrast.ts`, WCAG AA) hard-
+      blocks publish and names failing pairs (faint-on-card is advisory only, so
+      the brand default stays publishable). Server Zod re-validates hex/radius
+      (0–24)/fonts (allowlist) — values only ever go into the `:root` block.
+    - **`?theme=draft`** preview: middleware sets a `serna-theme-preview` cookie;
+      the **root layout** honours it *only* for signed-in admins (`getDraftTheme`
+      via RLS), everyone else keeps the published theme.
+    - **Navigation**: header/footer menu builder (label, url, new-tab, reorder,
+      one level of nesting, activate) → `menu_items`.
+    - **Directory**: per-page, default sort, review-SLA days, pending-direct-link.
+    - **Maps**: default centre lat/lng/zoom + browser key.
+    - **Email**: from name/address, admin recipients, **send test email**.
+    - **Integrations / Scripts**: deliberate placeholders (Phase 17).
+  - All settings/theme/form actions requireAdmin + Zod + logAudit and revalidate
+    the affected public paths.
+  - **Deliberately minimal / deferred** (documented): custom fonts aren't actually
+    web-loaded (only Bricolage/Inter self-hosted; a picked font falls back through
+    the stack); the Maps tab uses numeric centre/zoom inputs rather than a
+    click-to-pick embedded map; new field types (number/multiselect/date) render
+    as best-effort inputs in the preview and aren't yet wired into the public
+    `DynamicField`. The DB trigger validating theme writes is assumed present and
+    untouched.
+
+### Phase 15 manual setup / notes
+- No new migrations. Uses existing `site_settings` keys (`theme`, `theme_draft`,
+  `theme_presets`, `site_name`, `logo_url`, `logo_mark_letter`, `favicon_url`,
+  `hero_heading`, `hero_subheading`, `footer_text`, `listings_per_page`,
+  `default_sort`, `review_sla_days`, `allow_pending_direct_link`,
+  `default_map_center`, `google_maps_browser_key`, `email_from_name`,
+  `email_from_address`, `admin_notification_recipients`) and `menu_items`.
 - Phase 14 notes:
   - `/admin/taxonomy` — three tabs (`components/admin/taxonomy/*`). No new
     migrations; it drives the existing `categories` / `tag_groups` / `tags`

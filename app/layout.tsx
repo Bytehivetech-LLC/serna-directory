@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
 import "./globals.css";
 import { fontBricolage, fontInter } from "@/lib/fonts";
-import { getTheme } from "@/lib/theme/get-theme";
+import { getTheme, getDraftTheme } from "@/lib/theme/get-theme";
+import { getUserRole } from "@/lib/auth/guards";
 import { toCssVars } from "@/lib/theme/to-css-vars";
 import { Toaster } from "@/components/ui/sonner";
 
@@ -17,7 +19,14 @@ export const metadata: Metadata = {
 export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
-  const theme = await getTheme();
+  // Admins previewing the draft theme (?theme=draft sets the cookie) see the
+  // draft; everyone else always sees the published theme.
+  const wantDraft =
+    (await cookies()).get("serna-theme-preview")?.value === "draft";
+  const theme =
+    wantDraft && (await getUserRole()) === "admin"
+      ? await getDraftTheme()
+      : await getTheme();
   const themeCss = toCssVars(theme);
 
   return (
