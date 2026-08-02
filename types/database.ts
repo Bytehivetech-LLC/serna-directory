@@ -546,6 +546,7 @@ export type Database = {
           fulfilled_at: string | null;
           fulfilled_by: string | null;
           fulfilment_notes: string | null;
+          renewal_reminded_at: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -566,6 +567,7 @@ export type Database = {
           fulfilled_at?: string | null;
           fulfilled_by?: string | null;
           fulfilment_notes?: string | null;
+          renewal_reminded_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -586,6 +588,7 @@ export type Database = {
           fulfilled_at?: string | null;
           fulfilled_by?: string | null;
           fulfilment_notes?: string | null;
+          renewal_reminded_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };

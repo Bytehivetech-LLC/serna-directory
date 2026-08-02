@@ -92,11 +92,16 @@ export async function createCheckoutSession(
     customer: customerId,
     client_reference_id: user.id,
     line_items: [{ price: priceId, quantity: 1 }],
-    metadata: { listing_id: listingId, package_id: packageId, user_id: user.id },
+    metadata: { purpose: "package", listing_id: listingId, package_id: packageId, user_id: user.id },
     ...(mode === "subscription"
       ? {
           subscription_data: {
-            metadata: { listing_id: listingId, package_id: packageId, user_id: user.id },
+            metadata: {
+              purpose: "package",
+              listing_id: listingId,
+              package_id: packageId,
+              user_id: user.id,
+            },
           },
         }
       : {}),

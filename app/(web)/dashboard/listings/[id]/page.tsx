@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ExternalLink, MessageSquare, Pencil, Star } from "lucide-react";
+import { ExternalLink, MessageSquare, Pencil, Sparkles, Star } from "lucide-react";
 import { requireOwnedListing } from "@/lib/dashboard/guards";
 import { getListingHealth } from "@/lib/dashboard/health";
 import { createClient } from "@/lib/supabase/server";
@@ -74,6 +74,12 @@ export default async function OwnerListingPage({
               <Link href={`/listing/${listing.slug}`} target="_blank">
                 <ExternalLink className="h-4 w-4" />
                 View
+              </Link>
+            </Button>
+            <Button asChild variant="outline">
+              <Link href={`/dashboard/listings/${listing.id}/extras`}>
+                <Sparkles className="h-4 w-4" />
+                Extras
               </Link>
             </Button>
             <Button asChild>

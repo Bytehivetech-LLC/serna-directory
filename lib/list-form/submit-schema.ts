@@ -54,6 +54,15 @@ export const listingSubmitSchema = z.object({
     .optional(),
   customFields: z.record(z.string(), z.string()).default({}),
   imageCount: z.number().int().min(0).max(30).default(0),
+  addons: z
+    .array(
+      z.object({
+        addonId: z.string().uuid(),
+        quantity: z.number().int().min(1).max(100),
+      }),
+    )
+    .max(20)
+    .default([]),
   recaptchaToken: z.string().optional(),
 });
 

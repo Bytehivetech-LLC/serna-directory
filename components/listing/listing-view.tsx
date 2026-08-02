@@ -121,12 +121,15 @@ export function ListingView({
   supportEmail,
   shareUrl,
   preview = false,
+  verifiedBadge = false,
 }: {
   listing: ListingDetail;
   mapsKey?: string;
   supportEmail: string;
   shareUrl: string;
   preview?: boolean;
+  /** From listing_entitlements — a bought or earned verified badge. */
+  verifiedBadge?: boolean;
 }) {
   const location = [listing.city, listing.state].filter(Boolean).join(", ");
   const hasDetails =
@@ -212,6 +215,11 @@ export function ListingView({
 
         {/* SIDEBAR */}
         <aside className="min-[900px]:sticky min-[900px]:top-6 min-[900px]:h-fit min-[900px]:space-y-6 space-y-6">
+          {verifiedBadge ? (
+            <div className="flex items-center gap-2 rounded-xl border border-good/30 bg-good-soft px-4 py-2.5 text-sm font-semibold text-good">
+              <BadgeCheck className="h-4 w-4" aria-hidden /> Verified business
+            </div>
+          ) : null}
           <SectionCard>
             <div className="flex flex-col gap-2.5">
               {preview ? (

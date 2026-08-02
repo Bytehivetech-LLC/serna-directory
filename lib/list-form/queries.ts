@@ -35,8 +35,15 @@ function parseFeatures(value: unknown): string[] {
 export const getListFormConfig = cache(async (): Promise<ListFormConfig> => {
   const supabase = await createClient();
 
-  const [sectionsRes, fieldsRes, categoriesRes, tagGroupsRes, tagsRes, packagesRes] =
-    await Promise.all([
+  const [
+    sectionsRes,
+    fieldsRes,
+    categoriesRes,
+    tagGroupsRes,
+    tagsRes,
+    packagesRes,
+    addonsRes,
+  ] = await Promise.all([
       supabase
         .from("form_sections")
         .select("id, key, title, subtitle, sort_order")
@@ -66,6 +73,14 @@ export const getListFormConfig = cache(async (): Promise<ListFormConfig> => {
       supabase
         .from("packages")
         .select("*")
+        .eq("is_active", true)
+        .eq("is_public", true)
+        .order("sort_order"),
+      supabase
+        .from("addons")
+        .select(
+          "id, slug, name, short_description, description, price_cents, currency, interval, max_quantity, package_ids, badge_label, image_url",
+        )
         .eq("is_active", true)
         .eq("is_public", true)
         .order("sort_order"),
@@ -148,7 +163,22 @@ export const getListFormConfig = cache(async (): Promise<ListFormConfig> => {
     sortOrder: p.sort_order ?? 0,
   }));
 
+  const addons = (addonsRes.data ?? []).map((a) => ({
+    id: a.id,
+    slug: a.slug,
+    name: a.name,
+    shortDescription: a.short_description,
+    description: a.description,
+    priceCents: a.price_cents ?? 0,
+    currency: a.currency ?? "usd",
+    interval: a.interval ?? "one_time",
+    maxQuantity: a.max_quantity ?? 1,
+    packageIds: Array.isArray(a.package_ids) ? a.package_ids : [],
+    badgeLabel: a.badge_label,
+    imageUrl: a.image_url,
+  }));
+
   const maxFieldPoints = fields.reduce((sum, f) => sum + f.strengthPoints, 0);
 
-  return { sections, categories, tagGroups, packages, maxFieldPoints };
+  return { sections, categories, tagGroups, packages, addons, maxFieldPoints };
 });

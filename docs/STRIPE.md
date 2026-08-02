@@ -143,3 +143,36 @@ processing).
 Never expose the secret key to the client or via a `NEXT_PUBLIC_` var. The service
 role client + Stripe secret are only touched in the webhook, in provisioning, and
 in admin actions that have already verified the caller is an admin.
+
+## Add-ons (Phase 13)
+
+Add-ons map to Stripe exactly like packages (`addons.stripe_product_id` /
+`stripe_price_id`), through the **same** `lib/stripe/sync.ts` module
+(`kind: "addon"`). Safe price changes and archiving work identically.
+
+**Buying.** `createExtrasCheckoutAction` (owner dashboard) and `buildAddonCheckout`
+(inside the public listing submit) write `listing_addons` rows as
+`pending_payment` keyed to the Checkout session id, then redirect. The webhook
+(`checkout.session.completed`, `metadata.purpose = "addons"`) records the payment,
+flips the rows to `active`, stamps `starts_at`/`expires_at` (from the add-on's
+`duration_days`), and emails an itemised confirmation.
+
+**Mixed intervals.** A Checkout session is either one-time (`payment`) or a single
+same-interval subscription. So a selection is allowed when it is *all one-time* or
+*all the same recurring interval*; anything mixed is refused with a message asking
+the buyer to purchase the groups separately. Running two sequential sessions
+(recurring first, then a one-time `payment` session) is the future upgrade path —
+it would key both sessions' `listing_addons` to the respective session ids and
+show progress in the UI.
+
+**Entitlements.** Buying never grants a perk directly — the webhook activates the
+`listing_addons` row and `public.listing_entitlements` sums active rows onto the
+package baseline. Everything server-side (image cap, listing-count, badge, etc.)
+reads that function and nothing else.
+
+**Expiry.** `GET /api/cron/addons` (Bearer `CRON_SECRET`, run daily) expires
+past-due add-ons and emails a one-time 7-day renewal warning.
+
+**Refunds.** A Stripe refund fires `charge.refunded`; the webhook marks the payment
+refunded and cascades its `listing_addons` to `refunded`, so the entitlement drops.
+Refund from the Stripe dashboard (the fulfilment queue links straight to it).

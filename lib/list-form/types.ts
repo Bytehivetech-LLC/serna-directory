@@ -71,11 +71,27 @@ export type FormPackage = {
   sortOrder: number;
 };
 
+export type FormAddon = {
+  id: string;
+  slug: string;
+  name: string;
+  shortDescription: string | null;
+  description: string | null;
+  priceCents: number;
+  currency: string;
+  interval: string;
+  maxQuantity: number;
+  packageIds: string[];
+  badgeLabel: string | null;
+  imageUrl: string | null;
+};
+
 export type ListFormConfig = {
   sections: FormSection[];
   categories: CategoryOption[];
   tagGroups: FormTagGroup[];
   packages: FormPackage[];
+  addons: FormAddon[];
   /** Base strength points available from all fields (images added on top). */
   maxFieldPoints: number;
 };

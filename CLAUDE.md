@@ -110,8 +110,59 @@ Never read `.env.local` or `keys.txt`.
   **3 — Authentication**, **4 — Directory page**, **5 — Listing page**,
   **6 — Listing form**, **7 — Accounts & email**, **8 — Stripe**,
   **9 — Owner dashboard**, **10 — Admin shell & users**,
-  **11 — Admin listings & moderation**, **12 — Admin packages & Stripe**
-- Next phase: **13** (per `docs/04-CLAUDE-PROMPTS.md`)
+  **11 — Admin listings & moderation**, **12 — Admin packages & Stripe**,
+  **13 — Add-on products**
+- Next phase: **14** (per `docs/04-CLAUDE-PROMPTS.md`)
+- Phase 13 notes:
+  - **Entitlements are the one source of truth.** `listing_entitlements(listing_id)`
+    was redefined (migration `20260803110000`) to fold ACTIVE `listing_addons`
+    onto the package baseline — extra_images/priority_boost sum in, featured_days/
+    homepage_slot/video_embed/inquiry_alerts/verified_badge flip on. SECURITY
+    DEFINER, granted anon/authenticated/service_role. The image uploader
+    (`/api/upload-url`), submit/owner image caps, and the listing page's verified
+    badge all read it. **The Check-it's 8→18 gallery + refused 19th photo come
+    straight from this** (the upload route 409s at `count >= max_images`).
+  - **A — `/admin/addons`**: catalogue mirroring packages (drag/arrow reorder,
+    times-sold, Stripe status banner). Create/edit form: effect select (manual /
+    extra_images / extra_listings / featured_days / homepage_slot / video_embed /
+    priority_boost / inquiry_alerts / verified_badge from `lib/addons/effects.ts`),
+    effect_value, duration_days, max_quantity, package availability, fulfilment
+    note, card image upload to `site-assets/addons/{id}`. Reuses the Phase 12
+    Stripe sync (`kind: "addon"`); delete blocked on active purchases → archive.
+  - **B — buying**: shared `ExtrasPicker` (cards, qty stepper, info popover)
+    rendered after the package cards on the listing form with a **running total**
+    ("Free listing + Newsletter spotlight + 10× extra photos = $75 today") and a
+    "Continue to checkout" submit; also `/dashboard/listings/[id]/extras` (active
+    w/ expiry, buy more, purchase history).
+  - **C — checkout/webhook**: `createExtrasCheckoutAction` (dashboard, RLS) and
+    `buildAddonCheckout` inside the public submit (service-role, sanctioned
+    provisioning path — buyer may be brand-new) both write `listing_addons` as
+    **pending_payment keyed to the session id** before redirect. Mixed intervals:
+    one Checkout is one-time OR one same-interval subscription; **mixed selections
+    are refused** with guidance (two-session sequencing is the documented future
+    path). Webhook `checkout.session.completed` with `purpose:"addons"` records a
+    payment, flips rows to **active**, stamps starts_at + expires_at (from
+    duration_days), links the payment, and emails an itemised confirmation.
+    `charge.refunded` cascades add-ons → refunded (entitlement drops).
+  - **E — `/admin/fulfilment`**: manual + active add-ons, oldest first, **7-day
+    ageing flag**, with the add-on's fulfilment note. Mark fulfilled (emails the
+    owner), add internal note, refund (Stripe deep link).
+  - **F/G**: verified badge shows on the listing page from entitlements; expiry
+    **cron** at `/api/cron/addons` (Bearer `CRON_SECRET`) expires past-due add-ons
+    and emails a 7-day renewal warning once (`renewal_reminded_at`). New email
+    fallbacks: `addons_purchased`, `addon_expiring`, `addon_fulfilled`.
+  - **Deliberately deferred** (documented, not wired): video-embed rendering (no
+    listing video column yet), the homepage spotlight rail, and feeding
+    priority_boost into `search_listings` ordering (needs the RPC to add the
+    entitlement or persist effective priority). Recurring add-on renewal via
+    `invoice.paid` is also not yet extended.
+
+### Phase 13 manual setup required
+1. Apply migrations `20260803110000_entitlements_addons.sql` (the entitlements
+   redefinition — **required for the Check-it**) and
+   `20260803110500_listing_addons_reminder.sql`.
+2. Set `CRON_SECRET` and schedule a daily `GET /api/cron/addons`
+   (`Authorization: Bearer $CRON_SECRET`) — e.g. a Vercel Cron.
 - Phase 12 notes:
   - **Reusable Stripe sync** (`lib/stripe/sync.ts`, `kind: "package" | "addon"` so
     Phase 13 reuses it): `syncStripeProductPrice` creates/updates the Product and

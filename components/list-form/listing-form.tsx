@@ -27,6 +27,13 @@ import { DynamicField } from "./dynamic-field";
 import { PhotoUploader } from "./photo-uploader";
 import { TagAccordions } from "./tag-accordions";
 import { PackageCards } from "./package-cards";
+import {
+  ExtrasPicker,
+  addonsForPackage,
+  extrasTotalCents,
+  type ExtrasSelection,
+} from "./extras-picker";
+import { formatCurrency } from "@/lib/utils/format";
 import { AddressField, type AddressGeo } from "./address-field";
 import { StrengthBar } from "./strength-bar";
 import { SuccessScreen } from "./success-screen";
@@ -97,6 +104,7 @@ export function ListingForm({
     new Set(initial?.tagSlugs ?? []),
   );
   const [packageSlug, setPackageSlug] = useState(defaultPackage);
+  const [extras, setExtras] = useState<ExtrasSelection>({});
   const [images, setImages] = useState<ProcessedImage[]>([]);
   const [existing, setExisting] = useState<ExistingImage[]>(existingImages);
   const [removingId, setRemovingId] = useState<string | null>(null);
@@ -165,6 +173,33 @@ export function ListingForm({
     config.packages.find((p) => p.slug === packageSlug) ?? config.packages[0];
   const maxImages = selectedPackage?.maxImages ?? 8;
   const totalImages = existing.length + images.length;
+
+  // Drop any selected extras that aren't available with the chosen package.
+  useEffect(() => {
+    const allowed = new Set(
+      addonsForPackage(config.addons, selectedPackage?.id ?? null).map((a) => a.id),
+    );
+    setExtras((prev) => {
+      const next: ExtrasSelection = {};
+      let changed = false;
+      for (const [id, q] of Object.entries(prev)) {
+        if (allowed.has(id)) next[id] = q;
+        else changed = true;
+      }
+      return changed ? next : prev;
+    });
+  }, [selectedPackage?.id, config.addons]);
+
+  const extrasTotal = extrasTotalCents(config.addons, extras);
+  const packagePriceCents = selectedPackage?.priceCents ?? 0;
+  const checkoutTotalCents = packagePriceCents + extrasTotal;
+  const goesToCheckout = checkoutTotalCents > 0;
+  const summaryParts = [
+    selectedPackage?.name ?? "Listing",
+    ...config.addons
+      .filter((a) => (extras[a.id] ?? 0) > 0)
+      .map((a) => ((extras[a.id] ?? 0) > 1 ? `${extras[a.id]}× ${a.name}` : a.name)),
+  ];
 
   const strength = useMemo(
     () => computeStrength(config, values, totalImages),
@@ -256,6 +291,9 @@ export function ListingForm({
         geo,
         customFields: {},
         imageCount: images.length,
+        addons: config.addons
+          .filter((a) => (extras[a.id] ?? 0) > 0)
+          .map((a) => ({ addonId: a.id, quantity: extras[a.id]! })),
         recaptchaToken: token ?? undefined,
       });
 
@@ -295,6 +333,12 @@ export function ListingForm({
       }
 
       if (useDraft) clearDraft();
+
+      // Paid extras selected → straight to Stripe checkout.
+      if (result.checkoutUrl) {
+        window.location.href = result.checkoutUrl;
+        return;
+      }
 
       // Owner create/edit → back to the dashboard listing. Anonymous → share screen.
       if (redirectOnSuccess) {
@@ -441,8 +485,31 @@ export function ListingForm({
                       selectedSlug={packageSlug}
                       onSelect={setPackageSlug}
                     />
-                    {/* Add-on picker slot — Phase 13. Intentionally empty. */}
-                    <div data-addon-slot className="mt-4" />
+                    {addonsForPackage(config.addons, selectedPackage?.id ?? null)
+                      .length ? (
+                      <div className="mt-6">
+                        <h3 className="mb-1 font-display text-base font-bold text-ink">
+                          Add extras
+                        </h3>
+                        <p className="mb-3 text-sm text-muted-foreground">
+                          Optional boosts — add them now or anytime from your
+                          dashboard.
+                        </p>
+                        <ExtrasPicker
+                          addons={config.addons}
+                          packageId={selectedPackage?.id ?? null}
+                          selected={extras}
+                          onChange={(id, qty) =>
+                            setExtras((prev) => {
+                              const next = { ...prev };
+                              if (qty <= 0) delete next[id];
+                              else next[id] = qty;
+                              return next;
+                            })
+                          }
+                        />
+                      </div>
+                    ) : null}
                   </>
                 ) : (
                   <SectionFields
@@ -472,6 +539,15 @@ export function ListingForm({
             </div>
           ) : null}
 
+          {goesToCheckout ? (
+            <div className="rounded-xl border border-violet/30 bg-violet-soft px-5 py-3.5 text-sm text-indigo-deep">
+              {summaryParts.join(" + ")} ={" "}
+              <b className="text-ink">
+                {formatCurrency(checkoutTotalCents, { fromCents: true })} today
+              </b>
+            </div>
+          ) : null}
+
           <StrengthBar
             percent={strength.percent}
             message={strengthMessage}
@@ -479,9 +555,7 @@ export function ListingForm({
             pending={pending}
             submitLabel={
               submitLabel ??
-              (selectedPackage?.priceCents
-                ? "Publish & continue to checkout"
-                : "Publish my listing")
+              (goesToCheckout ? "Continue to checkout" : "Publish my listing")
             }
             onPublish={handlePublish}
           />

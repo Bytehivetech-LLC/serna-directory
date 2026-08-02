@@ -12,6 +12,7 @@ import { geocodeAddress } from "@/lib/geo/geocode";
 import { getSettings } from "@/lib/settings";
 import { sendTemplateEmail } from "@/lib/email/send";
 import { zodErrorToFieldErrors } from "@/lib/forms";
+import { createExtrasCheckoutAction } from "@/lib/stripe/addon-checkout";
 import { listingSubmitSchema, type ListingSubmitInput } from "./submit-schema";
 import type { SubmitResult, UploadTarget } from "./actions";
 
@@ -251,6 +252,16 @@ export async function createOwnerListingAction(
     },
   });
 
+  // Add-ons selected during create → checkout for them (authenticated owner).
+  let checkoutUrl: string | null = null;
+  if (data.addons.length) {
+    const co = await createExtrasCheckoutAction({
+      listingId: listing.id,
+      addons: data.addons,
+    });
+    if (co.ok) checkoutUrl = co.url;
+  }
+
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/listings");
   return {
@@ -260,6 +271,7 @@ export async function createOwnerListingAction(
     slug: listing.slug ?? slug,
     featured: pkg.price_cents > 0 && pkg.allows_featured,
     uploads,
+    checkoutUrl,
   };
 }
 

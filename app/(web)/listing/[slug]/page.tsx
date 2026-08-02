@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { headers } from "next/headers";
 import { getListingBySlug } from "@/lib/listing/queries";
 import { getSettings } from "@/lib/settings";
+import { createClient } from "@/lib/supabase/server";
 import { PageContainer } from "@/components/layout/page-container";
 import { ListingView } from "@/components/listing/listing-view";
 import { ViewTracker } from "@/components/listing/view-tracker";
@@ -65,6 +66,16 @@ export default async function ListingPage({ params }: Params) {
   const origin = await siteOrigin();
   const shareUrl = `${origin}/listing/${listing.slug}`;
 
+  // Entitlements decide bought/earned perks (verified badge, etc.).
+  const supabase = await createClient();
+  const { data: ent } = await supabase.rpc("listing_entitlements", {
+    p_listing_id: listing.id,
+  });
+  const entRow = Array.isArray(ent) ? ent[0] : ent;
+  const verifiedBadge = Boolean(
+    (entRow as { verified_badge?: boolean } | null)?.verified_badge,
+  );
+
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "LocalBusiness",
@@ -108,6 +119,7 @@ export default async function ListingPage({ params }: Params) {
         mapsKey={mapsKey}
         supportEmail={supportEmail}
         shareUrl={shareUrl}
+        verifiedBadge={verifiedBadge}
       />
     </PageContainer>
   );

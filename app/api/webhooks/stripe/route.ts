@@ -155,6 +155,57 @@ export async function POST(request: NextRequest) {
   return NextResponse.json({ received: true });
 }
 
+/**
+ * Activate the add-ons bought in a checkout session: flip their pending rows to
+ * active, stamp starts_at, compute expires_at from the add-on's duration_days,
+ * and link the payment. The webhook is the ONLY place a purchase becomes active.
+ */
+async function activatePurchasedAddons(
+  admin: Admin,
+  sessionId: string,
+  links: { paymentId: string | null; invoiceId: string | null },
+): Promise<{ addonId: string; quantity: number; name: string }[]> {
+  const { data: pending } = await admin
+    .from("listing_addons")
+    .select("id, addon_id, quantity")
+    .eq("stripe_checkout_id", sessionId)
+    .eq("status", "pending_payment");
+  if (!pending?.length) return [];
+
+  const addonIds = Array.from(new Set(pending.map((p) => p.addon_id)));
+  const { data: addons } = await admin
+    .from("addons")
+    .select("id, duration_days, name")
+    .in("id", addonIds);
+  const meta = new Map(
+    (addons ?? []).map((a) => [a.id, { days: a.duration_days, name: a.name }]),
+  );
+
+  const nowMs = Date.now();
+  const nowIso = new Date(nowMs).toISOString();
+  const result: { addonId: string; quantity: number; name: string }[] = [];
+  for (const p of pending) {
+    const days = meta.get(p.addon_id)?.days ?? null;
+    const expires = days ? new Date(nowMs + days * 86400000).toISOString() : null;
+    await admin
+      .from("listing_addons")
+      .update({
+        status: "active",
+        starts_at: nowIso,
+        expires_at: expires,
+        payment_id: links.paymentId,
+        stripe_invoice_id: links.invoiceId,
+      })
+      .eq("id", p.id);
+    result.push({
+      addonId: p.addon_id,
+      quantity: p.quantity,
+      name: meta.get(p.addon_id)?.name ?? "Add-on",
+    });
+  }
+  return result;
+}
+
 async function handleCheckoutCompleted(
   stripe: Stripe,
   admin: Admin,
@@ -163,6 +214,62 @@ async function handleCheckoutCompleted(
   const listingId = session.metadata?.listing_id;
   const packageId = session.metadata?.package_id;
   const userId = session.metadata?.user_id;
+  const purpose = session.metadata?.purpose;
+
+  // Add-ons-only checkout: record the payment, activate the add-ons, done. Never
+  // touches the listing's package.
+  if (purpose === "addons") {
+    if (!listingId || !userId) return;
+    const invoiceId =
+      typeof session.invoice === "string" ? session.invoice : session.invoice?.id ?? null;
+    const { data: payment } = await admin
+      .from("payments")
+      .insert({
+        user_id: userId,
+        listing_id: listingId,
+        stripe_checkout_id: session.id,
+        stripe_invoice_id: invoiceId,
+        stripe_payment_intent_id:
+          typeof session.payment_intent === "string" ? session.payment_intent : null,
+        amount_cents: session.amount_total ?? 0,
+        currency: session.currency ?? "usd",
+        status: "paid",
+        description: "Add-ons",
+        paid_at: new Date().toISOString(),
+      })
+      .select("id")
+      .maybeSingle();
+
+    const activated = await activatePurchasedAddons(admin, session.id, {
+      paymentId: payment?.id ?? null,
+      invoiceId,
+    });
+
+    // Confirmation email — itemised, with next steps for manual add-ons.
+    const { data: listing } = await admin
+      .from("listings")
+      .select("business_name, contact_name, contact_email")
+      .eq("id", listingId)
+      .maybeSingle();
+    if (listing?.contact_email && activated.length) {
+      const items = activated
+        .map((a) => `${a.quantity}× ${a.name}`)
+        .join(", ");
+      await sendTemplateEmail("addons_purchased", {
+        to: listing.contact_email,
+        userId,
+        listingId,
+        context: {
+          owner_name: listing.contact_name ?? "there",
+          listing_name: listing.business_name,
+          items,
+          total: formatCurrency(session.amount_total ?? 0, { fromCents: true }),
+        },
+      });
+    }
+    return;
+  }
+
   if (!listingId || !packageId || !userId) return;
 
   const { data: pkg } = await admin
@@ -413,8 +520,19 @@ async function handleChargeRefunded(admin: Admin, charge: Stripe.Charge) {
   const paymentIntentId =
     typeof charge.payment_intent === "string" ? charge.payment_intent : null;
   if (!paymentIntentId) return;
-  await admin
+
+  const { data: refunded } = await admin
     .from("payments")
     .update({ status: "refunded" })
-    .eq("stripe_payment_intent_id", paymentIntentId);
+    .eq("stripe_payment_intent_id", paymentIntentId)
+    .select("id");
+
+  // Any add-ons paid by these payments lose their entitlement.
+  const paymentIds = (refunded ?? []).map((p) => p.id);
+  if (paymentIds.length) {
+    await admin
+      .from("listing_addons")
+      .update({ status: "refunded" })
+      .in("payment_id", paymentIds);
+  }
 }

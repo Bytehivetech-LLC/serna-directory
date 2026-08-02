@@ -61,6 +61,27 @@ export const FALLBACK_TEMPLATES: Record<string, TemplateShape> = {
     cta_label: "Make the changes",
     cta_path: "{{edit_link}}",
   },
+  addons_purchased: {
+    subject: "Your {{listing_name}} extras are confirmed",
+    heading: "Thanks, {{owner_name}} — that's confirmed",
+    body: "You added: {{items}} for {{listing_name}} ({{total}}). Anything automatic is active right away. For anything we run by hand (like a newsletter spotlight), we'll be in touch within 2 business days to schedule it.",
+    cta_label: "Manage your extras",
+    cta_path: "/dashboard",
+  },
+  addon_expiring: {
+    subject: "An extra on {{listing_name}} is expiring soon",
+    heading: "Heads up, {{owner_name}}",
+    body: "Your {{addon_name}} on {{listing_name}} expires on {{expires_on}}. Renew it to keep the perk running without a gap.",
+    cta_label: "Renew it",
+    cta_path: "{{extras_link}}",
+  },
+  addon_fulfilled: {
+    subject: "Your {{addon_name}} is done",
+    heading: "All set, {{owner_name}}",
+    body: "We've completed your {{addon_name}} for {{listing_name}}. {{note}}",
+    cta_label: "View your listing",
+    cta_path: "{{listing_path}}",
+  },
 };
 
 /** Last-resort generic when a key has no DB row and no fallback. */

@@ -11,6 +11,7 @@ import { geocodeAddress } from "@/lib/geo/geocode";
 import { getSettings } from "@/lib/settings";
 import { sendTemplateEmail } from "@/lib/email/send";
 import { zodErrorToFieldErrors } from "@/lib/forms";
+import { getStripe } from "@/lib/stripe/client";
 import { listingSubmitSchema, type ListingSubmitInput } from "./submit-schema";
 
 const BUCKET = "listing-images";
@@ -30,6 +31,8 @@ export type SubmitResult =
       slug: string;
       featured: boolean;
       uploads: UploadTarget[];
+      /** When add-ons were selected, redirect here to pay for them. */
+      checkoutUrl?: string | null;
     }
   | { ok: true; mode: "existing"; redirectTo: string; message: string }
   | { ok: false; error?: string; fieldErrors?: Record<string, string> };
@@ -62,6 +65,96 @@ function descriptionHtml(text: string): string {
     ALLOWED_TAGS: ["p", "br", "strong", "em", "b", "i", "ul", "ol", "li", "a"],
     ALLOWED_ATTR: ["href", "target", "rel"],
   });
+}
+
+type AdminClient = ReturnType<typeof createAdminClient>;
+
+/**
+ * Build an add-ons checkout for a freshly-created listing (public submit flow).
+ * Uses the service-role client — this runs inside the sanctioned "account
+ * provisioning during listing submission" path, so the buyer may be a brand-new,
+ * not-yet-signed-in account. Writes pending listing_addons keyed to the session;
+ * the webhook activates them. Returns the checkout URL, or null when there's
+ * nothing to charge / Stripe isn't configured / the selection mixes intervals.
+ */
+async function buildAddonCheckout(
+  admin: AdminClient,
+  ownerId: string,
+  ownerEmail: string,
+  listingId: string,
+  listingSlug: string,
+  selections: { addonId: string; quantity: number }[],
+  origin: string,
+): Promise<string | null> {
+  if (!selections.length) return null;
+  const stripe = getStripe();
+  if (!stripe) return null;
+
+  const ids = selections.map((s) => s.addonId);
+  const { data: addons } = await admin
+    .from("addons")
+    .select("id, price_cents, interval, stripe_price_id, is_active, is_public, max_quantity")
+    .in("id", ids);
+  const byId = new Map((addons ?? []).map((a) => [a.id, a]));
+
+  const items: { addon: NonNullable<ReturnType<typeof byId.get>>; quantity: number }[] = [];
+  for (const s of selections) {
+    const a = byId.get(s.addonId);
+    if (!a || !a.is_active || !a.is_public || a.price_cents <= 0 || !a.stripe_price_id) continue;
+    items.push({ addon: a, quantity: Math.min(s.quantity, a.max_quantity) });
+  }
+  if (!items.length) return null;
+
+  const intervals = new Set(items.map((i) => i.addon.interval));
+  const allOneTime = intervals.size === 1 && intervals.has("one_time");
+  const allSameRecurring = intervals.size === 1 && !intervals.has("one_time");
+  if (!allOneTime && !allSameRecurring) return null; // mixed → buy from dashboard
+  const mode = allOneTime ? "payment" : "subscription";
+
+  // Ensure a Stripe customer for the (possibly brand-new) owner.
+  const { data: profile } = await admin
+    .from("profiles")
+    .select("stripe_customer_id, full_name")
+    .eq("id", ownerId)
+    .maybeSingle();
+  let customerId = profile?.stripe_customer_id ?? null;
+  if (!customerId) {
+    const customer = await stripe.customers.create({
+      email: ownerEmail,
+      name: profile?.full_name ?? undefined,
+      metadata: { user_id: ownerId },
+    });
+    customerId = customer.id;
+    await admin.from("profiles").update({ stripe_customer_id: customerId }).eq("id", ownerId);
+  }
+
+  const session = await stripe.checkout.sessions.create({
+    mode,
+    customer: customerId,
+    client_reference_id: ownerId,
+    line_items: items.map((i) => ({ price: i.addon.stripe_price_id!, quantity: i.quantity })),
+    metadata: { purpose: "addons", listing_id: listingId, user_id: ownerId },
+    ...(mode === "subscription"
+      ? { subscription_data: { metadata: { purpose: "addons", listing_id: listingId, user_id: ownerId } } }
+      : {}),
+    success_url: `${origin}/listing/${listingSlug}?extras=success`,
+    cancel_url: `${origin}/listing/${listingSlug}`,
+  });
+  if (!session.url) return null;
+
+  await admin.from("listing_addons").insert(
+    items.map((i) => ({
+      listing_id: listingId,
+      addon_id: i.addon.id,
+      owner_id: ownerId,
+      quantity: i.quantity,
+      status: "pending_payment",
+      amount_cents: i.addon.price_cents * i.quantity,
+      stripe_checkout_id: session.id,
+    })),
+  );
+
+  return session.url;
 }
 
 export async function submitListingAction(
@@ -324,6 +417,17 @@ export async function submitListingAction(
     },
   });
 
+  // Add-ons: create a checkout to pay for any selected extras.
+  const checkoutUrl = await buildAddonCheckout(
+    admin,
+    ownerId,
+    email,
+    listing.id,
+    listing.slug ?? slug,
+    data.addons,
+    origin,
+  );
+
   return {
     ok: true,
     mode,
@@ -331,5 +435,6 @@ export async function submitListingAction(
     slug: listing.slug ?? slug,
     featured: pkg.price_cents > 0 && pkg.allows_featured,
     uploads,
+    checkoutUrl,
   };
 }
