@@ -53,8 +53,8 @@ export function AdminSidebar() {
             className={cn(
               "flex shrink-0 items-center gap-2.5 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-semibold no-underline transition-colors",
               active
-                ? "bg-white/15 text-white"
-                : "text-white/70 hover:bg-white/10 hover:text-white",
+                ? "bg-sidebar-active-bg text-sidebar-active-text"
+                : "text-sidebar-text/70 hover:bg-sidebar-active-bg/40 hover:text-sidebar-text",
             )}
           >
             <Icon className="h-4 w-4 shrink-0" aria-hidden />

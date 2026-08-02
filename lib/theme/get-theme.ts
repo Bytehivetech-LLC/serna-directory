@@ -3,6 +3,7 @@ import { cache } from "react";
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { defaultTheme, type Theme } from "./defaults";
+import { defaultAdminTheme, type AdminTheme } from "./admin-defaults";
 
 /**
  * Merge a loosely-typed record from the database over the default theme.
@@ -19,6 +20,43 @@ export function mergeTheme(base: Theme, overrides: Record<string, unknown>): The
   }
   return out;
 }
+
+/** Same merge for the admin theme (public shape + sidebar/brand-bar keys). */
+export function mergeAdminTheme(
+  base: AdminTheme,
+  overrides: Record<string, unknown>,
+): AdminTheme {
+  const out: AdminTheme = { ...base };
+  for (const key of Object.keys(base) as (keyof AdminTheme)[]) {
+    const value = overrides[key];
+    if (typeof value === "string" && value.trim()) {
+      out[key] = value.trim();
+    }
+  }
+  return out;
+}
+
+/**
+ * The admin panel's theme, read once per request with the caller's session
+ * (RLS) — the admin layout has already required an admin. Falls back to the
+ * seeded dark-sidebar default whenever the row is missing or malformed.
+ */
+export const getAdminTheme = cache(async (): Promise<AdminTheme> => {
+  try {
+    const supabase = await createServerClient();
+    const { data } = await supabase
+      .from("site_settings")
+      .select("value")
+      .eq("key", "admin_theme")
+      .maybeSingle();
+    if (!data || typeof data.value !== "object" || data.value === null) {
+      return defaultAdminTheme;
+    }
+    return mergeAdminTheme(defaultAdminTheme, data.value as Record<string, unknown>);
+  } catch {
+    return defaultAdminTheme;
+  }
+});
 
 /**
  * The single source of truth for the active theme, read once per request.

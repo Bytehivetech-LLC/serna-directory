@@ -4,6 +4,12 @@ import {
   defaultTheme,
   type Theme,
 } from "./defaults";
+import {
+  ADMIN_EXTRA_KEYS,
+  ADMIN_EXTRA_CSS_VAR,
+  defaultAdminTheme,
+  type AdminTheme,
+} from "./admin-defaults";
 
 /**
  * Parse a hex colour (#rgb / #rrggbb, with or without the leading #) into
@@ -71,4 +77,34 @@ export function toCssVars(theme: Theme): string {
   );
 
   return `:root {\n${lines.join("\n")}\n}`;
+}
+
+/**
+ * The admin theme: the full public-theme var block PLUS the sidebar/brand-bar
+ * vars, scoped to `selector` (the admin shell wrapper) so it overrides the
+ * published public theme within the admin subtree only. Each colour is
+ * validated per-slot and falls back to the admin default; the public site's
+ * :root is never touched.
+ */
+export function toAdminCssVars(theme: AdminTheme, selector: string): string {
+  const lines: string[] = [];
+
+  for (const key of THEME_COLOR_KEYS) {
+    const channels =
+      hexToRgbChannels(theme[key]) ?? hexToRgbChannels(defaultAdminTheme[key])!;
+    lines.push(`  ${THEME_CSS_VAR[key]}: ${channels};`);
+  }
+  for (const key of ADMIN_EXTRA_KEYS) {
+    const channels =
+      hexToRgbChannels(theme[key]) ?? hexToRgbChannels(defaultAdminTheme[key])!;
+    lines.push(`  ${ADMIN_EXTRA_CSS_VAR[key]}: ${channels};`);
+  }
+
+  const radius =
+    typeof theme.radius === "string" && theme.radius.trim()
+      ? theme.radius.trim()
+      : defaultAdminTheme.radius;
+  lines.push(`  --radius-card: ${radius};`);
+
+  return `${selector} {\n${lines.join("\n")}\n}`;
 }

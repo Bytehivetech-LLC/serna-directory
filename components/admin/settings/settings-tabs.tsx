@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import type { MenuItem } from "@/types";
 import type { Theme } from "@/lib/theme/defaults";
+import type { AdminTheme } from "@/lib/theme/admin-defaults";
 import type { ThemePreset } from "@/lib/theme/presets";
 import type { IntegrationPanel } from "@/lib/admin/integrations-queries";
 import type { StripeStatus } from "@/lib/stripe/status";
@@ -22,6 +23,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { ImageUploadField, type UploadResult } from "@/components/ui/image-upload-field";
 import { ThemeEditor } from "./theme-editor";
+import { AdminThemeEditor } from "./admin-theme-editor";
 import {
   updateBrandingAction,
   signBrandingUploadAction,
@@ -45,12 +47,14 @@ export function SettingsTabs({
   settings,
   menuItems,
   theme,
+  adminTheme,
   integrations,
   scripts,
 }: {
   settings: SettingsMap;
   menuItems: MenuItem[];
   theme: { draft: Theme; published: Theme; presets: ThemePreset[]; hasDraft: boolean };
+  adminTheme: { adminTheme: AdminTheme; adminLogoUrl: string | null };
   integrations: { integrations: IntegrationPanel[]; stripe: StripeStatus };
   scripts: ScriptRow[];
 }) {
@@ -59,6 +63,7 @@ export function SettingsTabs({
       <TabsList className="flex-wrap">
         <TabsTrigger value="branding">Branding</TabsTrigger>
         <TabsTrigger value="theme">Theme</TabsTrigger>
+        <TabsTrigger value="admin-theme">Admin theme</TabsTrigger>
         <TabsTrigger value="navigation">Navigation</TabsTrigger>
         <TabsTrigger value="directory">Directory</TabsTrigger>
         <TabsTrigger value="maps">Maps</TabsTrigger>
@@ -70,6 +75,9 @@ export function SettingsTabs({
       <TabsContent value="branding" className="mt-6"><BrandingTab settings={settings} /></TabsContent>
       <TabsContent value="theme" className="mt-6">
         <ThemeEditor draft={theme.draft} published={theme.published} presets={theme.presets} hasDraft={theme.hasDraft} />
+      </TabsContent>
+      <TabsContent value="admin-theme" className="mt-6">
+        <AdminThemeEditor adminTheme={adminTheme.adminTheme} adminLogoUrl={adminTheme.adminLogoUrl} />
       </TabsContent>
       <TabsContent value="navigation" className="mt-6"><NavigationTab items={menuItems} /></TabsContent>
       <TabsContent value="directory" className="mt-6"><DirectoryTab settings={settings} /></TabsContent>

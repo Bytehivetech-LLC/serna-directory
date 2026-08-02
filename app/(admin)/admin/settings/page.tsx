@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { getAllSettings, getMenuItems } from "@/lib/admin/settings-queries";
-import { getThemeEditorData } from "@/lib/admin/theme-queries";
+import { getThemeEditorData, getAdminThemeEditorData } from "@/lib/admin/theme-queries";
 import { getIntegrationsPanel } from "@/lib/admin/integrations-queries";
 import { getScripts } from "@/lib/admin/scripts-queries";
 import { PageHeading } from "@/components/layout/page-heading";
@@ -9,10 +9,11 @@ import { SettingsTabs } from "@/components/admin/settings/settings-tabs";
 export const metadata: Metadata = { title: "Settings" };
 
 export default async function SettingsPage() {
-  const [settings, menuItems, theme, integrations, scripts] = await Promise.all([
+  const [settings, menuItems, theme, adminTheme, integrations, scripts] = await Promise.all([
     getAllSettings(),
     getMenuItems(),
     getThemeEditorData(),
+    getAdminThemeEditorData(),
     getIntegrationsPanel(),
     getScripts(),
   ]);
@@ -24,6 +25,7 @@ export default async function SettingsPage() {
         settings={settings}
         menuItems={menuItems}
         theme={theme}
+        adminTheme={adminTheme}
         integrations={integrations}
         scripts={scripts}
       />
