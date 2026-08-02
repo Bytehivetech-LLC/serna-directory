@@ -1,6 +1,7 @@
 -- ALL MIGRATIONS, in order. Paste into the Supabase SQL editor and Run.
--- Safe to re-run: every statement uses create-or-replace / if-not-exists /
--- on-conflict-do-nothing. Generated 18 files.
+-- Safe to re-run: create-or-replace / if-not-exists / on-conflict-do-nothing
+-- (listing_entitlements is dropped+recreated because its return shape changed).
+-- Generated 18 files.
 
 
 -- ============================================================
@@ -391,7 +392,12 @@ grant execute on function public.admin_list_listings(
 -- SECURITY DEFINER so the public listing page (anon) can read a published
 -- listing's perks (video/badge) without exposing the underlying rows.
 
-create or replace function public.listing_entitlements(p_listing_id uuid)
+-- The original function returned a different shape; Postgres can't change a
+-- return type in place, so drop it first. Safe — it's only ever called via RPC,
+-- not referenced by policies. (Re-granted at the bottom of this file.)
+drop function if exists public.listing_entitlements(uuid);
+
+create function public.listing_entitlements(p_listing_id uuid)
 returns table (
   featured boolean,
   max_images integer,

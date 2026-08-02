@@ -9,7 +9,12 @@
 -- SECURITY DEFINER so the public listing page (anon) can read a published
 -- listing's perks (video/badge) without exposing the underlying rows.
 
-create or replace function public.listing_entitlements(p_listing_id uuid)
+-- The original function returned a different shape; Postgres can't change a
+-- return type in place, so drop it first. Safe — it's only ever called via RPC,
+-- not referenced by policies. (Re-granted at the bottom of this file.)
+drop function if exists public.listing_entitlements(uuid);
+
+create function public.listing_entitlements(p_listing_id uuid)
 returns table (
   featured boolean,
   max_images integer,
