@@ -1137,18 +1137,30 @@ export type Database = {
           type: string;
           payload: Json | null;
           processed_at: string;
+          status: string;
+          attempts: number;
+          last_error: string | null;
+          updated_at: string;
         };
         Insert: {
           id?: string;
           type?: string;
           payload?: Json | null;
           processed_at?: string;
+          status?: string;
+          attempts?: number;
+          last_error?: string | null;
+          updated_at?: string;
         };
         Update: {
           id?: string;
           type?: string;
           payload?: Json | null;
           processed_at?: string;
+          status?: string;
+          attempts?: number;
+          last_error?: string | null;
+          updated_at?: string;
         };
         Relationships: [];
       };
