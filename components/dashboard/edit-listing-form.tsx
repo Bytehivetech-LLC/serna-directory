@@ -39,7 +39,7 @@ export function EditListingForm({
   const reviewNote =
     isPublished && requiresApproval ? (
       <>
-        <b className="text-[#5c430f]">Some edits need a quick re-review.</b> Your
+        <b className="text-warn-strong">Some edits need a quick re-review.</b> Your
         listing is live on a reviewed plan, so changing the business name,
         description, category, or address sends it back to pending review before
         those changes appear in search. Everything else — photos, tags, hours,
@@ -47,7 +47,7 @@ export function EditListingForm({
       </>
     ) : isPublished ? (
       <>
-        <b className="text-[#5c430f]">Your changes go live immediately.</b> This
+        <b className="text-warn-strong">Your changes go live immediately.</b> This
         listing stays published as you save.
       </>
     ) : null;

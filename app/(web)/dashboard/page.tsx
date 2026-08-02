@@ -55,8 +55,8 @@ function ActionCard({
       <div className="flex items-start gap-2.5">
         <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-[#b8791e]" />
         <div>
-          <p className="text-sm font-semibold text-[#5c430f]">{title}</p>
-          <p className="text-sm text-[#7a5a1e]">{description}</p>
+          <p className="text-sm font-semibold text-warn-strong">{title}</p>
+          <p className="text-sm text-warn-ink">{description}</p>
         </div>
       </div>
       <Button asChild size="sm" variant="outline">

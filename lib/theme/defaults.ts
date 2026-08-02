@@ -26,8 +26,12 @@ export type Theme = {
   goodSoft: string;
   warm: string;
   warmBorder: string;
+  warnInk: string;
+  warnStrong: string;
+  warnIcon: string;
   danger: string;
   dangerSoft: string;
+  track: string;
   // header
   headerBg: string;
   headerText: string;
@@ -56,8 +60,12 @@ export const defaultTheme: Theme = {
   goodSoft: "#dcf3e8",
   warm: "#fff8f0",
   warmBorder: "#f4dfc0",
+  warnInk: "#7a5a1e", // body text on warm
+  warnStrong: "#5c430f", // bold text on warm
+  warnIcon: "#b4791e", // icon on warm
   danger: "#d64545",
   dangerSoft: "#fbe7e7",
+  track: "#edecf7", // progress-bar track
 
   headerBg: "#232268",
   headerText: "#ffffff",
@@ -84,8 +92,12 @@ export const THEME_COLOR_KEYS = [
   "goodSoft",
   "warm",
   "warmBorder",
+  "warnInk",
+  "warnStrong",
+  "warnIcon",
   "danger",
   "dangerSoft",
+  "track",
   "headerBg",
   "headerText",
 ] as const satisfies ReadonlyArray<keyof Theme>;
@@ -110,8 +122,12 @@ export const THEME_CSS_VAR: Record<
   goodSoft: "--c-good-soft",
   warm: "--c-warm",
   warmBorder: "--c-warm-border",
+  warnInk: "--c-warn-ink",
+  warnStrong: "--c-warn-strong",
+  warnIcon: "--c-warn-icon",
   danger: "--c-danger",
   dangerSoft: "--c-danger-soft",
+  track: "--c-track",
   headerBg: "--c-header-bg",
   headerText: "--c-header-text",
 };

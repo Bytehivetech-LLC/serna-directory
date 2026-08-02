@@ -236,7 +236,7 @@ function CategoryDialog({
             </Field>
           </div>
           {slugChanged && inUse ? (
-            <p className="rounded-lg border border-warm-border bg-warm px-3 py-2 text-xs text-[#7a5a1e]">
+            <p className="rounded-lg border border-warm-border bg-warm px-3 py-2 text-xs text-warn-ink">
               This category is used by {c!.listing_count_live} listing
               {c!.listing_count_live === 1 ? "" : "s"}. Changing its slug will change their URLs and any shared filter links.
             </p>

@@ -20,7 +20,7 @@ export function StrengthBar({
   return (
     <div className="sticky bottom-0 z-20 -mx-6 border-t border-border bg-card/95 px-6 pb-5 pt-3.5 backdrop-blur">
       <div className="mx-auto max-w-[720px]">
-        <div className="h-2 overflow-hidden rounded-full bg-[#edecf7]">
+        <div className="h-2 overflow-hidden rounded-full bg-track">
           <div
             className="h-full rounded-full bg-gradient-to-r from-indigo to-violet transition-[width] duration-300"
             style={{ width: `${percent}%` }}

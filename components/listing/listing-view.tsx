@@ -157,7 +157,7 @@ export function ListingView({
                 </Badge>
               ) : null}
               {listing.status === "pending_review" ? (
-                <Badge className="gap-1 bg-warm text-[#7a5a1e] hover:bg-warm">
+                <Badge className="gap-1 bg-warm text-warn-ink hover:bg-warm">
                   <Clock className="h-3 w-3" />
                   Pending review
                 </Badge>

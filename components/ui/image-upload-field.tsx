@@ -203,7 +203,7 @@ export function ImageUploadField({
 
       {/* Indeterminate progress while the upload is in flight. */}
       {busy ? (
-        <div className="h-1 w-full overflow-hidden rounded-full bg-secondary">
+        <div className="h-1 w-full overflow-hidden rounded-full bg-track">
           <div className="h-full w-1/3 animate-[imgupload_1.1s_ease-in-out_infinite] rounded-full bg-violet" />
         </div>
       ) : null}

@@ -49,8 +49,12 @@ const config: Config = {
         "good-soft": channel("--c-good-soft"),
         warm: channel("--c-warm"),
         "warm-border": channel("--c-warm-border"),
+        "warn-ink": channel("--c-warn-ink"),
+        "warn-strong": channel("--c-warn-strong"),
+        "warn-icon": channel("--c-warn-icon"),
         danger: channel("--c-danger"),
         "danger-soft": channel("--c-danger-soft"),
+        track: channel("--c-track"),
         "header-bg": channel("--c-header-bg"),
         "header-text": channel("--c-header-text"),
 

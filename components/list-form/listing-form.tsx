@@ -412,8 +412,8 @@ export function ListingForm({
 
       {category ? (
         <div className="animate-rise space-y-6">
-          <div className="rounded-xl border border-warm-border bg-warm px-5 py-4 text-sm text-[#7a5a1e]">
-            <b className="text-[#5c430f]">Fill out as much as you can.</b>{" "}
+          <div className="rounded-xl border border-warm-border bg-warm px-5 py-4 text-sm text-warn-ink">
+            <b className="text-warn-strong">Fill out as much as you can.</b>{" "}
             Complete listings with a rich description and photos rank higher and
             get far more inquiries. Worth the extra few minutes.
           </div>
@@ -534,7 +534,7 @@ export function ListingForm({
             ))}
 
           {reviewNote ? (
-            <div className="rounded-xl border border-warm-border bg-warm px-5 py-4 text-sm text-[#7a5a1e]">
+            <div className="rounded-xl border border-warm-border bg-warm px-5 py-4 text-sm text-warn-ink">
               {reviewNote}
             </div>
           ) : null}

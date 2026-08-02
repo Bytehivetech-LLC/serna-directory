@@ -38,7 +38,9 @@ const LABELS: Record<ColorKey, string> = {
   indigo: "Indigo", indigoDeep: "Indigo deep", violet: "Violet", violetSoft: "Violet soft",
   bg: "Page background", card: "Card", border: "Border", borderStrong: "Border strong",
   good: "Good", goodSoft: "Good soft", warm: "Warm", warmBorder: "Warm border",
-  danger: "Danger", dangerSoft: "Danger soft", headerBg: "Header background", headerText: "Header text",
+  warnInk: "Warn text", warnStrong: "Warn strong", warnIcon: "Warn icon",
+  danger: "Danger", dangerSoft: "Danger soft", track: "Progress track",
+  headerBg: "Header background", headerText: "Header text",
 };
 
 const GROUPS: { title: string; keys: ColorKey[] }[] = [
@@ -46,7 +48,21 @@ const GROUPS: { title: string; keys: ColorKey[] }[] = [
   { title: "Brand", keys: ["indigo", "indigoDeep", "violet", "violetSoft"] },
   { title: "Surfaces", keys: ["bg", "card", "headerBg", "headerText"] },
   { title: "Borders", keys: ["border", "borderStrong"] },
-  { title: "States", keys: ["good", "goodSoft", "warm", "warmBorder", "danger", "dangerSoft"] },
+  {
+    title: "States",
+    keys: [
+      "good",
+      "goodSoft",
+      "warm",
+      "warmBorder",
+      "warnInk",
+      "warnStrong",
+      "warnIcon",
+      "danger",
+      "dangerSoft",
+      "track",
+    ],
+  },
 ];
 
 export function ThemeEditor({
@@ -190,11 +206,11 @@ export function ThemeEditor({
                   {c.pass ? (
                     <Check className="h-4 w-4 text-good" />
                   ) : (
-                    <X className={`h-4 w-4 ${c.blocking ? "text-danger" : "text-[#b4791e]"}`} />
+                    <X className={`h-4 w-4 ${c.blocking ? "text-danger" : "text-warn-icon"}`} />
                   )}
                   <span className={c.pass ? "text-muted-foreground" : "text-ink"}>{c.label}</span>
                 </span>
-                <span className={`font-mono text-xs ${c.pass ? "text-faint" : c.blocking ? "text-danger" : "text-[#b4791e]"}`}>
+                <span className={`font-mono text-xs ${c.pass ? "text-faint" : c.blocking ? "text-danger" : "text-warn-icon"}`}>
                   {c.ratio.toFixed(2)} / {c.min}
                 </span>
               </li>
@@ -354,7 +370,7 @@ function ThemePreviewPane() {
       </div>
 
       {/* Alert */}
-      <div className="border border-warm-border bg-warm px-3 py-2 text-xs text-[#7a5a1e]" style={{ borderRadius: "var(--radius-card)" }}>
+      <div className="border border-warm-border bg-warm px-3 py-2 text-xs text-warn-ink" style={{ borderRadius: "var(--radius-card)" }}>
         Heads up — your listing is pending review.
       </div>
 

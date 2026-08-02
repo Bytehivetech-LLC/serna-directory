@@ -123,7 +123,7 @@ export default async function OwnerListingPage({
       <SectionCard title="Listing health">
         <div className="flex items-center justify-between gap-4">
           <div className="flex-1">
-            <div className="h-2 overflow-hidden rounded-full bg-[#edecf7]">
+            <div className="h-2 overflow-hidden rounded-full bg-track">
               <div
                 className="h-full rounded-full bg-gradient-to-r from-indigo to-violet"
                 style={{ width: `${health.percent}%` }}
