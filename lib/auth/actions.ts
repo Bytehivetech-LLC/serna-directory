@@ -52,12 +52,13 @@ export async function signInAction(
   const parsed = loginSchema.safeParse({
     email: formData.get("email"),
     password: formData.get("password"),
+    recaptchaToken: formData.get("recaptchaToken") || undefined,
     next: formData.get("next") || undefined,
   });
   if (!parsed.success) {
     return { ok: false, fieldErrors: zodErrorToFieldErrors(parsed.error) };
   }
-  const { email, password, next } = parsed.data;
+  const { email, password, recaptchaToken, next } = parsed.data;
 
   const h = await headers();
   const ip = clientIp(h);
@@ -73,6 +74,16 @@ export async function signInAction(
       ok: false,
       error: `Too many attempts. Please try again in about ${mins} minute${mins === 1 ? "" : "s"}.`,
     };
+  }
+
+  // reCAPTCHA on sign-in (in addition to the IP + email rate limits). On a failed
+  // score return the SAME generic message as a wrong password, so the response
+  // never tells an attacker which check they tripped.
+  const genericAuthError =
+    "That email or password isn't right. Try again, or reset your password.";
+  const captcha = await verifyRecaptcha(recaptchaToken, "login");
+  if (!captcha.ok) {
+    return { ok: false, error: genericAuthError };
   }
 
   const supabase = await createClient();

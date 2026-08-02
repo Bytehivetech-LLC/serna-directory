@@ -290,6 +290,7 @@ const checkbox = z.preprocess(
 export const loginSchema = z.object({
   email,
   password: z.string().min(1, "Enter your password."),
+  recaptchaToken: z.string().optional(),
   next: z.string().optional(),
 });
 
