@@ -87,6 +87,15 @@ function applySecurityHeaders(response: NextResponse): NextResponse {
     "geolocation=(self), camera=(), microphone=()",
   );
   response.headers.set("Content-Security-Policy", contentSecurityPolicy());
+  // HSTS — PRODUCTION ONLY. Setting it in dev would pin localhost to https in the
+  // browser and break local development in a way that persists after removal.
+  // (Cloudflare can also set this at the edge; having both is harmless.)
+  if (process.env.NODE_ENV === "production") {
+    response.headers.set(
+      "Strict-Transport-Security",
+      "max-age=63072000; includeSubDomains; preload",
+    );
+  }
   return response;
 }
 
