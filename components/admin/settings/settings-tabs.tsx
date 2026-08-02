@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowDown, ArrowUp, Plus, Upload, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Plus, X } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import type { MenuItem } from "@/types";
@@ -20,6 +20,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
+import { ImageUploadField, type UploadResult } from "@/components/ui/image-upload-field";
 import { ThemeEditor } from "./theme-editor";
 import {
   updateBrandingAction,
@@ -100,6 +101,7 @@ function useAct() {
 
 function BrandingTab({ settings }: { settings: SettingsMap }) {
   const { pending, run } = useAct();
+  const router = useRouter();
   const [f, setF] = useState({
     site_name: str(settings, "site_name", "Serna Educational Services"),
     logo_mark_letter: str(settings, "logo_mark_letter", "S"),
@@ -107,26 +109,23 @@ function BrandingTab({ settings }: { settings: SettingsMap }) {
     hero_subheading: str(settings, "hero_subheading"),
     footer_text: str(settings, "footer_text"),
   });
-  const [logoUrl, setLogoUrl] = useState(str(settings, "logo_url"));
-  const [faviconUrl, setFaviconUrl] = useState(str(settings, "favicon_url"));
+  const logoUrl = str(settings, "logo_url");
+  const faviconUrl = str(settings, "favicon_url");
   const set = <K extends keyof typeof f>(k: K, v: string) => setF((p) => ({ ...p, [k]: v }));
 
-  async function upload(kind: "logo" | "favicon", file: File) {
+  async function uploadImage(kind: "logo" | "favicon", file: File): Promise<UploadResult> {
     const ext = file.name.split(".").pop() ?? "png";
     const signed = await signBrandingUploadAction(kind, ext);
-    if (!signed.ok) return toast.error(signed.error);
+    if (!signed.ok) return { ok: false, error: signed.error };
     const supabase = createClient();
-    const { error } = await supabase.storage.from("site-assets").uploadToSignedUrl(signed.path, signed.token, file, { contentType: file.type });
-    if (error) return toast.error("Upload failed.");
-    run(async () => {
-      const res = await setBrandingImageAction(kind, signed.path);
-      if (res.ok) {
-        const url = supabase.storage.from("site-assets").getPublicUrl(signed.path).data.publicUrl;
-        if (kind === "logo") setLogoUrl(url);
-        else setFaviconUrl(url);
-      }
-      return res;
-    });
+    const up = await supabase.storage
+      .from("site-assets")
+      .uploadToSignedUrl(signed.path, signed.token, file, { contentType: file.type });
+    if (up.error) return { ok: false, error: "Upload failed. Please try again." };
+    const res = await setBrandingImageAction(kind, signed.path);
+    if (!res.ok) return { ok: false, error: res.error };
+    router.refresh();
+    return { ok: true, url: supabase.storage.from("site-assets").getPublicUrl(signed.path).data.publicUrl };
   }
 
   return (
@@ -136,35 +135,21 @@ function BrandingTab({ settings }: { settings: SettingsMap }) {
           <Field label="Site name"><Input value={f.site_name} onChange={(e) => set("site_name", e.target.value)} /></Field>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label="Logo mark letter"><Input maxLength={2} value={f.logo_mark_letter} onChange={(e) => set("logo_mark_letter", e.target.value)} /></Field>
-            <Field label="Logo image">
-              <div className="flex items-center gap-3">
-                {logoUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={logoUrl} alt="" className="h-9 rounded border border-border bg-secondary object-contain px-2" />
-                ) : null}
-                <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm font-semibold hover:bg-secondary">
-                  <Upload className="h-4 w-4" /> Upload
-                  <input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" className="hidden" onChange={(e) => { const file = e.target.files?.[0]; if (file) void upload("logo", file); }} />
-                </label>
-              </div>
-            </Field>
+            <ImageUploadField
+              label="Logo image"
+              value={logoUrl || null}
+              accept={["image/png", "image/jpeg", "image/webp", "image/svg+xml"]}
+              onUpload={(file) => uploadImage("logo", file)}
+              hint="Replaces the mark + site name in the header."
+            />
           </div>
-          <Field label="Favicon">
-            <div className="flex items-center gap-3">
-              {faviconUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={faviconUrl} alt="Current favicon" className="h-8 w-8 rounded border border-border bg-secondary object-contain p-1" />
-              ) : null}
-              <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm font-semibold hover:bg-secondary">
-                <Upload className="h-4 w-4" /> Upload favicon
-                <input type="file" accept="image/png,image/x-icon,image/svg+xml" className="hidden" onChange={(e) => { const file = e.target.files?.[0]; if (file) void upload("favicon", file); }} />
-              </label>
-            </div>
-            <p className="mt-1.5 text-xs text-muted-foreground">
-              PNG, ICO, or SVG. Browsers cache favicons hard — after saving you may
-              need a hard refresh (Ctrl/Cmd+Shift+R) to see the new one in your tab.
-            </p>
-          </Field>
+          <ImageUploadField
+            label="Favicon"
+            value={faviconUrl || null}
+            accept={["image/png", "image/x-icon", "image/svg+xml"]}
+            onUpload={(file) => uploadImage("favicon", file)}
+            hint="PNG, ICO, or SVG. Browsers cache favicons hard — you may need a hard refresh (Ctrl/Cmd+Shift+R) to see the new one in your tab."
+          />
         </div>
       </SectionCard>
 
