@@ -58,13 +58,32 @@ export async function fetchDirectory(
   // ESA isn't in the RPC output — look it up for the returned ids (badge only).
   const ids = rows.map((r) => r.id);
   const esaById = new Map<string, EsaAnswer | null>();
+  // search_listings returns the cover's storage_path (full ~250KB). Tiles only
+  // need the 30KB thumbnail we already generate, so map cover storage_path →
+  // thumb_path for the covers on this page. (The proper fix is to have the RPC
+  // return coalesce(thumb_path, storage_path) — see the migration in this
+  // commit — but this makes the busiest page serve thumbs regardless.)
+  const thumbByCover = new Map<string, string>();
   if (ids.length) {
-    const { data: esaRows } = await supabase
-      .from("listings")
-      .select("id, accepts_esa")
-      .in("id", ids);
+    const [{ data: esaRows }, { data: coverRows }] = await Promise.all([
+      supabase.from("listings").select("id, accepts_esa").in("id", ids),
+      supabase
+        .from("listing_images")
+        .select("storage_path, thumb_path, is_cover")
+        .in("listing_id", ids)
+        .eq("is_cover", true),
+    ]);
     for (const r of esaRows ?? []) esaById.set(r.id, r.accepts_esa);
+    for (const r of coverRows ?? []) {
+      if (r.storage_path && r.thumb_path) thumbByCover.set(r.storage_path, r.thumb_path);
+    }
   }
+
+  const coverUrl = (coverPath: string | null): string | null => {
+    if (!coverPath) return null;
+    const path = thumbByCover.get(coverPath) ?? coverPath;
+    return supabase.storage.from(IMAGE_BUCKET).getPublicUrl(path).data.publicUrl;
+  };
 
   const listings: DirectoryListing[] = rows.map((r) => ({
     id: r.id,
@@ -73,10 +92,7 @@ export async function fetchDirectory(
     city: r.city,
     categoryName: r.category_name,
     categorySlug: r.category_slug,
-    coverUrl: r.cover_path
-      ? supabase.storage.from(IMAGE_BUCKET).getPublicUrl(r.cover_path).data
-          .publicUrl
-      : null,
+    coverUrl: coverUrl(r.cover_path),
     isFeatured: r.is_featured,
     acceptsEsa: esaById.get(r.id) ?? null,
     lat: r.latitude,
