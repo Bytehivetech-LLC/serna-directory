@@ -3,11 +3,12 @@
 import { z } from "zod";
 import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
-import { requireAdmin, getSession } from "@/lib/auth/guards";
+import { requireAdmin, getSession, requireRecentMFA } from "@/lib/auth/guards";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { logAudit } from "@/lib/audit/log";
 import { sendEmail } from "@/lib/email/sendgrid";
+import { sendTemplateEmail } from "@/lib/email/send";
 import { enqueueAssetDeletion, pathFromPublicUrl } from "@/lib/assets/lifecycle";
 import { hasActivePaidListings } from "./queries";
 
@@ -387,4 +388,122 @@ export async function softDeleteUserAction(
   });
   revalidatePath("/admin/users");
   return { ok: true, message: "Account deleted." };
+}
+
+/* ------------------------------------------------------------ create user -- */
+
+const createUserSchema = z.object({
+  fullName: z.string().trim().min(1, "Enter a name.").max(120),
+  email: z.string().trim().email("Enter a valid email.").max(200),
+  role: roleSchema,
+  verified: z.boolean().default(false),
+  method: z.enum(["invite", "password"]),
+  tempPassword: z.string().min(10, "Use at least 10 characters.").max(200).optional(),
+});
+
+export type CreateUserResult =
+  | { ok: true; userId: string; tempPassword?: string; message: string }
+  | { ok: false; error: string; existingUserId?: string; mfaRequired?: boolean };
+
+export async function createUserAction(input: unknown): Promise<CreateUserResult> {
+  await requireAdmin();
+  const parsed = createUserSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]!.message };
+  const d = parsed.data;
+
+  // Handing out admin/moderator is at least as sensitive as writing a secret.
+  if (d.role === "admin" || d.role === "moderator") {
+    const mfa = await requireRecentMFA();
+    if (!mfa.ok) {
+      return { ok: false, error: "Confirm it's you with your 2FA code, then try again.", mfaRequired: true };
+    }
+  }
+  if (d.method === "password" && !d.tempPassword) {
+    return { ok: false, error: "Set a temporary password, or switch to sending an invite." };
+  }
+
+  const admin = createAdminClient();
+
+  // Existing email → clear message + a link to that user.
+  const { data: existing } = await admin
+    .from("profiles")
+    .select("id")
+    .eq("email", d.email)
+    .maybeSingle();
+  if (existing) {
+    return { ok: false, error: "A user with that email already exists.", existingUserId: existing.id };
+  }
+
+  const origin = siteOrigin(await headers());
+
+  // Create the auth user. handle_new_user creates the profile row.
+  const { data: created, error: createErr } =
+    d.method === "password"
+      ? await admin.auth.admin.createUser({
+          email: d.email,
+          password: d.tempPassword,
+          email_confirm: true,
+          user_metadata: { full_name: d.fullName, must_change_password: true },
+        })
+      : await admin.auth.admin.createUser({
+          email: d.email,
+          email_confirm: false,
+          user_metadata: { full_name: d.fullName },
+        });
+  if (createErr || !created?.user) {
+    return { ok: false, error: createErr?.message ?? "Couldn't create that user." };
+  }
+  const userId = created.user.id;
+
+  // Role + verification (Blocker 2's trigger fix lets these service-role writes
+  // stick), and mirror the role onto the JWT claim.
+  await admin
+    .from("profiles")
+    .update({ role: d.role, is_verified: d.verified, full_name: d.fullName })
+    .eq("id", userId);
+  await admin.auth.admin.updateUserById(userId, { app_metadata: { user_role: d.role } });
+
+  await logAudit({
+    action: "user.create",
+    entityType: "user",
+    entityId: userId,
+    after: { email: d.email, role: d.role, method: d.method, verified: d.verified },
+  });
+
+  // Invite path: magic link via the existing complete_profile template.
+  if (d.method === "invite") {
+    const { data: link } = await admin.auth.admin.generateLink({
+      type: "magiclink",
+      email: d.email,
+      options: { redirectTo: `${origin}/auth/callback?next=${encodeURIComponent("/dashboard/profile?welcome=1")}` },
+    });
+    await sendTemplateEmail("complete_profile", {
+      to: d.email,
+      userId,
+      context: {
+        owner_name: d.fullName,
+        magic_link: link?.properties?.action_link ?? `${origin}/login`,
+      },
+    });
+  }
+
+  // Tell a newly-created admin they have access.
+  if (d.role === "admin") {
+    await sendTemplateEmail("welcome_admin", {
+      to: d.email,
+      userId,
+      context: { owner_name: d.fullName, admin_url: `${origin}/admin` },
+    });
+  }
+
+  revalidatePath("/admin/users");
+  return {
+    ok: true,
+    userId,
+    tempPassword: d.method === "password" ? d.tempPassword : undefined,
+    message:
+      d.method === "password"
+        ? "User created. Share the temporary password below — they'll be asked to change it."
+        : "User created and an invitation email is on its way.",
+  };
 }
