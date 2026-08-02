@@ -26,6 +26,7 @@ import { ThemeEditor } from "./theme-editor";
 import { AdminThemeEditor } from "./admin-theme-editor";
 import {
   updateBrandingAction,
+  updateUrlsAction,
   signBrandingUploadAction,
   setBrandingImageAction,
   updateDirectoryAction,
@@ -50,6 +51,7 @@ export function SettingsTabs({
   adminTheme,
   integrations,
   scripts,
+  urls,
 }: {
   settings: SettingsMap;
   menuItems: MenuItem[];
@@ -57,10 +59,16 @@ export function SettingsTabs({
   adminTheme: { adminTheme: AdminTheme; adminLogoUrl: string | null };
   integrations: { integrations: IntegrationPanel[]; stripe: StripeStatus };
   scripts: ScriptRow[];
+  urls: {
+    site: { url: string; rung: string };
+    admin: { url: string; rung: string };
+    isProd: boolean;
+  };
 }) {
   return (
     <Tabs defaultValue="branding" className="w-full">
       <TabsList className="flex-wrap">
+        <TabsTrigger value="general">General</TabsTrigger>
         <TabsTrigger value="branding">Branding</TabsTrigger>
         <TabsTrigger value="theme">Theme</TabsTrigger>
         <TabsTrigger value="admin-theme">Admin theme</TabsTrigger>
@@ -72,6 +80,7 @@ export function SettingsTabs({
         <TabsTrigger value="scripts">Scripts</TabsTrigger>
       </TabsList>
 
+      <TabsContent value="general" className="mt-6"><GeneralTab settings={settings} urls={urls} /></TabsContent>
       <TabsContent value="branding" className="mt-6"><BrandingTab settings={settings} /></TabsContent>
       <TabsContent value="theme" className="mt-6">
         <ThemeEditor draft={theme.draft} published={theme.published} presets={theme.presets} hasDraft={theme.hasDraft} />
@@ -103,6 +112,74 @@ function useAct() {
       else toast.error(res.error);
     });
   return { pending, run };
+}
+
+/* ------------------------------------------------------------------ general --- */
+
+function GeneralTab({
+  settings,
+  urls,
+}: {
+  settings: SettingsMap;
+  urls: {
+    site: { url: string; rung: string };
+    admin: { url: string; rung: string };
+    isProd: boolean;
+  };
+}) {
+  const { pending, run } = useAct();
+  const [f, setF] = useState({
+    site_url: str(settings, "site_url"),
+    admin_url: str(settings, "admin_url"),
+  });
+  const [health, setHealth] = useState<string | null>(null);
+
+  const localhostInProd =
+    urls.isProd &&
+    (/localhost|127\.0\.0\.1/.test(urls.site.url) || /localhost|127\.0\.0\.1/.test(urls.admin.url));
+
+  async function test() {
+    setHealth("Checking…");
+    try {
+      const res = await fetch(`${urls.site.url}/api/health`, { cache: "no-store" });
+      const json = await res.json();
+      setHealth(json?.ok ? `OK — answered by ${json.target}` : "No healthy response.");
+    } catch {
+      setHealth("Couldn't reach the health endpoint.");
+    }
+  }
+
+  return (
+    <div className="max-w-2xl space-y-4">
+      {localhostInProd ? (
+        <div className="rounded-xl border border-danger/30 bg-danger-soft px-4 py-3 text-sm text-ink">
+          A URL resolves to <b>localhost</b> in production — emails and links will be broken. Set the
+          correct URLs below.
+        </div>
+      ) : null}
+      <SectionCard title="Public & admin URLs">
+        <div className="space-y-4">
+          <Field label="Public site URL">
+            <Input value={f.site_url} onChange={(e) => setF((p) => ({ ...p, site_url: e.target.value }))} placeholder="https://directory.example.com" />
+            <p className="mt-1 text-xs text-muted-foreground">
+              Detected: <span className="font-mono text-ink">{urls.site.url}</span> ({urls.site.rung})
+            </p>
+          </Field>
+          <Field label="Admin URL">
+            <Input value={f.admin_url} onChange={(e) => setF((p) => ({ ...p, admin_url: e.target.value }))} placeholder="https://admin.example.com" />
+            <p className="mt-1 text-xs text-muted-foreground">
+              Detected: <span className="font-mono text-ink">{urls.admin.url}</span> ({urls.admin.rung})
+            </p>
+          </Field>
+          <div className="flex flex-wrap items-center gap-3">
+            <Button disabled={pending} onClick={() => run(() => updateUrlsAction(f))}>Save URLs</Button>
+            <Button variant="outline" onClick={test}>Test /api/health</Button>
+            {health ? <span className="text-sm text-muted-foreground">{health}</span> : null}
+          </div>
+        </div>
+      </SectionCard>
+    </div>
+  );
 }
 
 /* --------------------------------------------------------------- branding --- */

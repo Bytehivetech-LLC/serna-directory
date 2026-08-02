@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { siteUrl } from "@/lib/site-url";
 import { notFound } from "next/navigation";
 import { headers } from "next/headers";
 import { getListingBySlug } from "@/lib/listing/queries";
@@ -19,7 +20,7 @@ async function siteOrigin(): Promise<string> {
       (host.includes("localhost") || host.startsWith("127.") ? "http" : "https");
     return `${proto}://${host}`;
   }
-  return process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+  return siteUrl();
 }
 
 export async function generateMetadata({ params }: Params): Promise<Metadata> {

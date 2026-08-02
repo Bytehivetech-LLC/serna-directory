@@ -1,6 +1,7 @@
 "use server";
 
 import { headers } from "next/headers";
+import { siteUrl } from "@/lib/site-url";
 import { revalidatePath } from "next/cache";
 import DOMPurify from "isomorphic-dompurify";
 import { createClient } from "@/lib/supabase/server";
@@ -50,7 +51,7 @@ function siteOrigin(h: Headers): string {
       (host.includes("localhost") || host.startsWith("127.") ? "http" : "https");
     return `${proto}://${host}`;
   }
-  return process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+  return siteUrl();
 }
 
 /** Best-effort geocode when the browser didn't already resolve coordinates. */

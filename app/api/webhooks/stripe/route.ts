@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { siteUrl } from "@/lib/site-url";
 import type Stripe from "stripe";
 import { getStripe } from "@/lib/stripe/client";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -409,7 +410,7 @@ async function handleCheckoutCompleted(
     .eq("id", listingId)
     .maybeSingle();
   if (listing?.contact_email) {
-    const origin = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+    const origin = siteUrl();
     await sendTemplateEmail("payment_receipt", {
       to: listing.contact_email,
       userId,

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { siteUrl } from "@/lib/site-url";
 import Link from "next/link";
 import { AlertTriangle, CheckCircle2, ExternalLink, Pencil } from "lucide-react";
 import { getNextPendingReview, type ReviewItem } from "@/lib/admin/listing-queries";
@@ -13,7 +14,7 @@ import { ReviewActionBar } from "@/components/admin/review-action-bar";
 
 export const metadata: Metadata = { title: "Review queue" };
 
-const WEB = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+const WEB = siteUrl();
 
 type SearchParams = Record<string, string | string[] | undefined>;
 

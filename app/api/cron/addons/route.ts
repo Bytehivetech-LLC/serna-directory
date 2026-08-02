@@ -1,11 +1,12 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { siteUrl } from "@/lib/site-url";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendTemplateEmail } from "@/lib/email/send";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const WEB = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+const WEB = siteUrl();
 
 /**
  * Daily add-on maintenance (call from a scheduled job / Vercel Cron):

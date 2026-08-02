@@ -1,6 +1,7 @@
 "use server";
 
 import { headers } from "next/headers";
+import { siteUrl } from "@/lib/site-url";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
@@ -40,7 +41,7 @@ function siteOrigin(h: Headers): string {
       (host.includes("localhost") || host.startsWith("127.") ? "http" : "https");
     return `${proto}://${host}`;
   }
-  return process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+  return siteUrl();
 }
 
 /* ------------------------------------------------------------- sign in --- */

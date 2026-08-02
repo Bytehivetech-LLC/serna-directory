@@ -92,6 +92,31 @@ export async function setBrandingImageAction(
   };
 }
 
+/* ------------------------------------------------------------------ urls --- */
+
+const urlField = z
+  .string()
+  .trim()
+  .max(200)
+  .refine((v) => v === "" || /^https?:\/\/[a-z0-9.-]+(:\d+)?$/i.test(v), {
+    message: "Enter a bare URL like https://example.com — no path or trailing slash.",
+  });
+
+const urlsSchema = z.object({ site_url: urlField, admin_url: urlField });
+
+export async function updateUrlsAction(input: unknown): Promise<AdminActionResult> {
+  await requireAdmin();
+  const parsed = urlsSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]!.message };
+  await writeSettings(
+    { site_url: parsed.data.site_url, admin_url: parsed.data.admin_url },
+    "settings.urls",
+  );
+  revalidatePath("/", "layout");
+  await revalidateWeb({ layout: true });
+  return { ok: true, message: "URLs saved." };
+}
+
 /* ------------------------------------------------------------- directory --- */
 
 const directorySchema = z.object({

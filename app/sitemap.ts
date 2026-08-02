@@ -1,12 +1,12 @@
 import type { MetadataRoute } from "next";
 import { createClient } from "@/lib/supabase/server";
-
-const SITE = process.env.NEXT_PUBLIC_SITE_URL ?? "https://directory.sernaeducationalservices.com";
+import { getSiteUrl } from "@/lib/site-url";
 
 /** Home, categories, cities, and every published listing. Admin host emits nothing. */
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   if (process.env.APP_TARGET === "admin") return [];
 
+  const SITE = await getSiteUrl();
   const now = new Date();
   const entries: MetadataRoute.Sitemap = [
     { url: `${SITE}/`, lastModified: now, changeFrequency: "daily", priority: 1 },

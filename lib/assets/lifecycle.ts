@@ -1,10 +1,11 @@
 import "server-only";
+import { siteUrl } from "@/lib/site-url";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getSettings } from "@/lib/settings";
 import { sendTemplateEmail } from "@/lib/email/send";
 
 type Admin = ReturnType<typeof createAdminClient>;
-const WEB = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+const WEB = siteUrl();
 const BUCKETS = ["listing-images", "site-assets", "avatars"];
 
 /** Enqueue a storage object for the drain worker. Never deletes storage.objects

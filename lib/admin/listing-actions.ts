@@ -1,6 +1,7 @@
 "use server";
 
 import { z } from "zod";
+import { siteUrl } from "@/lib/site-url";
 import { revalidatePath } from "next/cache";
 import DOMPurify from "isomorphic-dompurify";
 import { requireAdmin, getSession } from "@/lib/auth/guards";
@@ -12,7 +13,7 @@ import { socialLinksSchema } from "@/lib/validation/schemas";
 import { revalidateWeb } from "@/lib/admin/revalidate-web";
 import type { AdminActionResult } from "./users-actions";
 
-const WEB = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+const WEB = siteUrl();
 
 const idSchema = z.string().uuid();
 const idsSchema = z.array(z.string().uuid()).min(1).max(500);
