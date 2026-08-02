@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { executeRecaptcha } from "@/lib/security/recaptcha-client";
 import { submitListingAction, type SubmitResult } from "@/lib/list-form/actions";
+import { confirmListingImagesAction } from "@/lib/list-form/confirm-uploads";
 import type { ListingSubmitInput } from "@/lib/list-form/submit-schema";
 import {
   computeStrength,
@@ -327,7 +328,9 @@ export function ListingForm({
         return;
       }
 
-      // Upload processed photos browser → Supabase via the signed URLs.
+      // Upload processed photos browser → Supabase via the signed URLs, then
+      // ask the server to verify the bytes (magic number) and drop anything
+      // that isn't a real image before we move on.
       if (result.uploads.length) {
         const supabase = createClient();
         await Promise.all(
@@ -345,6 +348,10 @@ export function ListingForm({
                 contentType: "image/webp",
               });
           }),
+        );
+        await confirmListingImagesAction(
+          result.listingId,
+          result.uploads.map((u) => u.fullPath),
         );
       }
 
