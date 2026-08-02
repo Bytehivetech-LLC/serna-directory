@@ -5,7 +5,7 @@ import { changePasswordAction } from "@/lib/auth/actions";
 import { initialFormState } from "@/lib/forms";
 import { FormField } from "@/components/auth/form-field";
 import { SubmitButton } from "@/components/auth/submit-button";
-import { PasswordStrengthMeter } from "@/components/auth/password-strength-meter";
+import { PasswordChecklist } from "@/components/auth/password-checklist";
 import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
@@ -33,7 +33,6 @@ export function ChangePasswordForm() {
         label="New password"
         name="newPassword"
         error={state.fieldErrors?.newPassword}
-        hint="At least 8 characters."
         required
       >
         <Input
@@ -46,7 +45,7 @@ export function ChangePasswordForm() {
           onChange={(e) => setPassword(e.target.value)}
         />
       </FormField>
-      {password ? <PasswordStrengthMeter password={password} /> : null}
+      <PasswordChecklist password={password} />
 
       <FormField
         label="Confirm new password"

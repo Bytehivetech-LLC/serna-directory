@@ -27,6 +27,44 @@ const APP_TARGET = process.env.APP_TARGET === "admin" ? "admin" : "web";
 const LOGIN_LIMIT = 5;
 const LOGIN_WINDOW_SECONDS = 15 * 60;
 
+/**
+ * Turn a Supabase Auth error into a specific, on-field message. The project has
+ * min-length + leaked-password (HIBP) protection, which arrive as auth errors
+ * the caller wasn't unpacking (that's the bare "Validation failed").
+ */
+function unpackAuthError(
+  error: { message?: string; code?: string; status?: number },
+  field: string,
+): FormState {
+  const msg = (error.message ?? "").toLowerCase();
+  const code = error.code ?? "";
+
+  // Enumeration-safe: never confirm an email already exists.
+  if (code === "user_already_exists" || msg.includes("already registered") || msg.includes("already been registered")) {
+    return {
+      ok: true,
+      message: "Almost there — check your email to confirm your account, then you're in.",
+    };
+  }
+  if (code === "weak_password" || msg.includes("password should be") || msg.includes("password is too")) {
+    const hint =
+      /(\d+)\s*char/.exec(msg)?.[0] ?? "the required length and complexity";
+    return { ok: false, fieldErrors: { [field]: `That password is too weak — it needs ${hint}.` } };
+  }
+  if (msg.includes("leaked") || msg.includes("pwned") || msg.includes("data breach") || msg.includes("compromised")) {
+    return {
+      ok: false,
+      fieldErrors: {
+        [field]:
+          "That password has appeared in a known data breach. Please choose a different one — we never see your password itself; this is checked by a secure hash.",
+      },
+    };
+  }
+  // Unmapped — log the real thing, show a useful generic.
+  console.error("[auth] unmapped auth error:", { code, message: error.message, status: error.status });
+  return { ok: false, error: "We couldn't complete that. Please try again." };
+}
+
 function clientIp(h: Headers): string {
   const forwarded = h.get("x-forwarded-for");
   if (forwarded) return forwarded.split(",")[0]!.trim();
@@ -157,10 +195,7 @@ export async function signUpAction(
     },
   });
   if (error) {
-    return {
-      ok: false,
-      error: "We couldn't create your account. Please try again.",
-    };
+    return unpackAuthError(error, "password");
   }
 
   // Email confirmation disabled in Supabase → already signed in.
@@ -244,7 +279,7 @@ export async function updatePasswordAction(
     password: parsed.data.password,
   });
   if (error) {
-    return { ok: false, error: "We couldn't update your password. Try again." };
+    return unpackAuthError(error, "password");
   }
 
   redirect("/dashboard?reset=1");
@@ -314,7 +349,7 @@ export async function changePasswordAction(
     password: parsed.data.newPassword,
   });
   if (error) {
-    return { ok: false, error: "We couldn't change your password. Please try again." };
+    return unpackAuthError(error, "newPassword");
   }
 
   return { ok: true, message: "Password updated." };

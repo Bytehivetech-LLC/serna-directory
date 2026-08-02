@@ -276,10 +276,24 @@ export type PackageUpsertInput = z.infer<typeof packageUpsertSchema>;
 const email = z.string().trim().toLowerCase().email("Enter a valid email.").max(200);
 
 /** New-password rules. 72 is bcrypt's byte ceiling. */
+// Aligned with the Supabase project password policy (min length + letter +
+// number). If your Authentication → Passwords settings differ, adjust these to
+// match exactly — a client rule stricter than the backend is its own kind of
+// broken, and one looser lets the form pass then the server reject.
+export const PASSWORD_RULES: { test: (v: string) => boolean; label: string; message: string }[] = [
+  { test: (v) => v.length >= 10, label: "At least 10 characters", message: "Use at least 10 characters." },
+  { test: (v) => /[a-zA-Z]/.test(v), label: "A letter", message: "Add at least one letter." },
+  { test: (v) => /\d/.test(v), label: "A number", message: "Add at least one number." },
+];
+
 const newPassword = z
   .string()
-  .min(8, "Use at least 8 characters.")
-  .max(72, "Passwords can be at most 72 characters.");
+  .max(72, "Passwords can be at most 72 characters.")
+  .superRefine((v, ctx) => {
+    for (const rule of PASSWORD_RULES) {
+      if (!rule.test(v)) ctx.addIssue({ code: z.ZodIssueCode.custom, message: rule.message });
+    }
+  });
 
 /** Coerce an HTML checkbox ("on"/absent) to a boolean. */
 const checkbox = z.preprocess(
