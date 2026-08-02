@@ -22,8 +22,14 @@ export default async function ProfilePage({
   const profile = await getProfile();
 
   const supabase = await createClient();
-  const { data: factors } = await supabase.auth.mfa.listFactors();
-  const verifiedTotp = factors?.totp?.find((f) => f.status === "verified");
+  // Never let an MFA-disabled project (or a transient error) 500 the profile.
+  let verifiedTotp: { id: string } | undefined;
+  try {
+    const { data: factors } = await supabase.auth.mfa.listFactors();
+    verifiedTotp = factors?.totp?.find((f) => f.status === "verified");
+  } catch (e) {
+    console.error("[profile] listFactors failed:", e);
+  }
 
   const defaults = {
     fullName:
