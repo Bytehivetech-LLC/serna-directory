@@ -8,6 +8,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { logAudit } from "@/lib/audit/log";
 import { sendTemplateEmail } from "@/lib/email/send";
 import { getSettings } from "@/lib/settings";
+import { socialLinksSchema } from "@/lib/validation/schemas";
 import { revalidateWeb } from "@/lib/admin/revalidate-web";
 import type { AdminActionResult } from "./users-actions";
 
@@ -512,6 +513,7 @@ const updateSchema = z.object({
   ages_served: z.string().trim().max(200).optional().nullable(),
   rate_text: z.string().trim().max(200).optional().nullable(),
   accepts_esa: z.enum(["yes", "no", "unsure"]).optional().nullable(),
+  social: socialLinksSchema.optional(),
   priority_rank: z.number().int().min(0).max(1000).optional(),
 });
 
@@ -575,6 +577,7 @@ export async function updateListingAction(
     ages_served: d.ages_served ?? null,
     rate_text: d.rate_text ?? null,
     accepts_esa: d.accepts_esa ?? null,
+    social: (d.social ?? {}) as never,
     priority_rank: d.priority_rank ?? 0,
   };
 

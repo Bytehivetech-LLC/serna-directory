@@ -54,7 +54,16 @@ export type ListingFormInitial = {
   packageSlug?: string;
   showPhone?: boolean;
   geo?: AddressGeo;
+  social?: Record<string, string>;
 };
+
+const SOCIAL_FIELDS = [
+  { key: "facebook", label: "Facebook", placeholder: "facebook.com/yourpage or @handle" },
+  { key: "instagram", label: "Instagram", placeholder: "@yourhandle" },
+  { key: "linkedin", label: "LinkedIn", placeholder: "linkedin.com/company/you" },
+  { key: "youtube", label: "YouTube", placeholder: "youtube.com/@yourchannel" },
+  { key: "tiktok", label: "TikTok", placeholder: "@yourhandle" },
+] as const;
 
 export function ListingForm({
   config,
@@ -105,6 +114,10 @@ export function ListingForm({
   );
   const [packageSlug, setPackageSlug] = useState(defaultPackage);
   const [extras, setExtras] = useState<ExtrasSelection>({});
+  const [social, setSocial] = useState<Record<string, string>>(initial?.social ?? {});
+  const [showSocial, setShowSocial] = useState(
+    () => Object.values(initial?.social ?? {}).some(Boolean),
+  );
   const [images, setImages] = useState<ProcessedImage[]>([]);
   const [existing, setExisting] = useState<ExistingImage[]>(existingImages);
   const [removingId, setRemovingId] = useState<string | null>(null);
@@ -286,6 +299,9 @@ export function ListingForm({
             | "no"
             | "unsure",
         },
+        social: Object.fromEntries(
+          Object.entries(social).filter(([, v]) => v && v.trim()),
+        ),
         showPhone,
         tagSlugs: [...tagSlugs],
         geo,
@@ -532,6 +548,35 @@ export function ListingForm({
                 )}
               </SectionCard>
             ))}
+
+          <SectionCard title="Social links" description="Optional — link the profiles families can follow you on.">
+            {showSocial ? (
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                {SOCIAL_FIELDS.map((f) => (
+                  <div key={f.key} className="space-y-1.5">
+                    <label htmlFor={`social-${f.key}`} className="text-sm font-semibold text-ink">
+                      {f.label}
+                    </label>
+                    <input
+                      id={`social-${f.key}`}
+                      value={social[f.key] ?? ""}
+                      onChange={(e) => setSocial((s) => ({ ...s, [f.key]: e.target.value }))}
+                      placeholder={f.placeholder}
+                      className="h-10 w-full rounded-lg border border-border bg-card px-3 text-sm text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet"
+                    />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setShowSocial(true)}
+                className="inline-flex items-center gap-2 rounded-lg border border-border-strong px-3 py-2 text-sm font-semibold text-ink hover:bg-secondary"
+              >
+                + Add social links
+              </button>
+            )}
+          </SectionCard>
 
           {reviewNote ? (
             <div className="rounded-xl border border-warm-border bg-warm px-5 py-4 text-sm text-warn-ink">

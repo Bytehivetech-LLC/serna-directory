@@ -19,9 +19,11 @@ export type ListingTagGroup = {
 };
 
 export type SocialLinks = {
-  instagram?: string;
   facebook?: string;
+  instagram?: string;
+  linkedin?: string;
   youtube?: string;
+  tiktok?: string;
 };
 
 export type ListingDetail = {

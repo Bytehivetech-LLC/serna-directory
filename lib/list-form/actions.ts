@@ -299,6 +299,7 @@ export async function submitListingAction(
       contact_phone: data.core.contact_phone ?? null,
       show_phone: data.showPhone,
       website: data.core.website ?? null,
+      social: (data.social ?? {}) as never,
       description: data.core.description,
       description_html: descriptionHtml(data.core.description),
       address_line: data.core.address_line ?? null,

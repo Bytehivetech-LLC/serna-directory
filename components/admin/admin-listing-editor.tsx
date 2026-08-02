@@ -94,6 +94,11 @@ export function AdminListingEditor({
     accepts_esa: listing.accepts_esa ?? "unsure",
   });
 
+  const [social, setSocial] = useState<Record<string, string>>(
+    listing.social && typeof listing.social === "object"
+      ? (listing.social as Record<string, string>)
+      : {},
+  );
   const [featuredUntil, setFeaturedUntil] = useState(
     isoToDateInput(listing.featured_until),
   );
@@ -141,6 +146,9 @@ export function AdminListingEditor({
         ages_served: form.ages_served || null,
         rate_text: form.rate_text || null,
         accepts_esa: form.accepts_esa as "yes" | "no" | "unsure",
+        social: Object.fromEntries(
+          Object.entries(social).filter(([, v]) => v && v.trim()),
+        ),
       }),
     );
   }
@@ -258,6 +266,25 @@ export function AdminListingEditor({
                 onChange={(e) => set("also_serves", e.target.value)}
               />
             </Field>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              {(
+                [
+                  ["facebook", "Facebook"],
+                  ["instagram", "Instagram"],
+                  ["linkedin", "LinkedIn"],
+                  ["youtube", "YouTube"],
+                  ["tiktok", "TikTok"],
+                ] as const
+              ).map(([key, label]) => (
+                <Field key={key} label={label}>
+                  <Input
+                    value={social[key] ?? ""}
+                    onChange={(e) => setSocial((s) => ({ ...s, [key]: e.target.value }))}
+                    placeholder="URL or @handle"
+                  />
+                </Field>
+              ))}
+            </div>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
               <Field label="Address">
                 <Input

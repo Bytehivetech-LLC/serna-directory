@@ -16,7 +16,7 @@ function pickSocial(value: unknown): SocialLinks {
   if (!value || typeof value !== "object") return {};
   const v = value as Record<string, unknown>;
   const out: SocialLinks = {};
-  for (const key of ["instagram", "facebook", "youtube"] as const) {
+  for (const key of ["facebook", "instagram", "linkedin", "youtube", "tiktok"] as const) {
     if (typeof v[key] === "string" && (v[key] as string).trim()) {
       out[key] = (v[key] as string).trim();
     }

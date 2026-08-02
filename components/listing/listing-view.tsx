@@ -11,8 +11,10 @@ import {
 import {
   FacebookIcon,
   InstagramIcon,
+  LinkedinIcon,
   YoutubeIcon,
 } from "@/components/listing/brand-icons";
+import { TiktokIcon } from "@/components/icons/tiktok";
 import type { ListingDetail } from "@/lib/listing/types";
 import { SectionCard } from "@/components/layout/section-card";
 import { Button } from "@/components/ui/button";
@@ -103,10 +105,33 @@ function SocialLink({
       target="_blank"
       rel="noopener noreferrer nofollow"
       aria-label={label}
-      className="grid h-10 w-10 place-items-center rounded-lg border border-border-strong text-muted-foreground transition-colors hover:border-violet hover:text-indigo"
+      className="grid h-10 w-10 place-items-center rounded-xl border border-border-strong text-muted-foreground transition-colors hover:border-violet hover:bg-violet-soft hover:text-violet"
     >
       {children}
     </a>
+  );
+}
+
+/** The social row inside the contact card. Renders only networks with a value;
+ *  wraps rather than scrolls on mobile. */
+function SocialRow({ social }: { social: ListingDetail["social"] }) {
+  const links = [
+    { key: "facebook", href: social.facebook, label: "Facebook", Icon: FacebookIcon },
+    { key: "instagram", href: social.instagram, label: "Instagram", Icon: InstagramIcon },
+    { key: "linkedin", href: social.linkedin, label: "LinkedIn", Icon: LinkedinIcon },
+    { key: "youtube", href: social.youtube, label: "YouTube", Icon: YoutubeIcon },
+    { key: "tiktok", href: social.tiktok, label: "TikTok", Icon: TiktokIcon },
+  ].filter((l): l is typeof l & { href: string } => Boolean(l.href));
+
+  if (!links.length) return null;
+  return (
+    <div className="flex flex-wrap gap-2 border-t border-border pt-3">
+      {links.map(({ key, href, label, Icon }) => (
+        <SocialLink key={key} href={href} label={label}>
+          <Icon className="h-4 w-4" />
+        </SocialLink>
+      ))}
+    </div>
   );
 }
 
@@ -222,17 +247,6 @@ export function ListingView({
           ) : null}
           <SectionCard>
             <div className="flex flex-col gap-2.5">
-              {preview ? (
-                <Button className="w-full" disabled>
-                  Message {listing.businessName}
-                </Button>
-              ) : (
-                <MessageDialog
-                  listingId={listing.id}
-                  businessName={listing.businessName}
-                  className="w-full"
-                />
-              )}
               {listing.website ? (
                 <Button asChild variant="outline" className="w-full">
                   <a href={listing.website} target="_blank" rel="noopener noreferrer nofollow">
@@ -249,6 +263,18 @@ export function ListingView({
                   </a>
                 </Button>
               ) : null}
+              {preview ? (
+                <Button className="w-full" disabled>
+                  Message {listing.businessName}
+                </Button>
+              ) : (
+                <MessageDialog
+                  listingId={listing.id}
+                  businessName={listing.businessName}
+                  className="w-full"
+                />
+              )}
+              <SocialRow social={listing.social} />
             </div>
           </SectionCard>
 
@@ -267,29 +293,6 @@ export function ListingView({
             </SectionCard>
           ) : null}
 
-          {listing.social.instagram ||
-          listing.social.facebook ||
-          listing.social.youtube ? (
-            <SectionCard title="Follow">
-              <div className="flex gap-2">
-                {listing.social.instagram ? (
-                  <SocialLink href={listing.social.instagram} label="Instagram">
-                    <InstagramIcon className="h-4 w-4" />
-                  </SocialLink>
-                ) : null}
-                {listing.social.facebook ? (
-                  <SocialLink href={listing.social.facebook} label="Facebook">
-                    <FacebookIcon className="h-4 w-4" />
-                  </SocialLink>
-                ) : null}
-                {listing.social.youtube ? (
-                  <SocialLink href={listing.social.youtube} label="YouTube">
-                    <YoutubeIcon className="h-4 w-4" />
-                  </SocialLink>
-                ) : null}
-              </div>
-            </SectionCard>
-          ) : null}
 
           {!preview ? (
             <>

@@ -97,6 +97,10 @@ export default async function EditListingPage({
     tagSlugs,
     packageSlug,
     showPhone: listing.show_phone ?? true,
+    social:
+      listing.social && typeof listing.social === "object"
+        ? (listing.social as Record<string, string>)
+        : {},
     geo: {
       latitude: listing.latitude,
       longitude: listing.longitude,

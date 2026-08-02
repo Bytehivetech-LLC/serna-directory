@@ -51,11 +51,82 @@ export const tagSelectionTypeSchema = z.enum(["single", "multiple"]);
 
 /* --------------------------------------------------------------- listing -- */
 
+/**
+ * One social field. Accepts a full URL OR a bare handle ("@sernaedu"), strips
+ * the leading @, tracking params and trailing slash, forces https, and rejects a
+ * URL whose host doesn't belong to this network — so a Facebook URL can't land
+ * in the Instagram field. Empty → undefined.
+ */
+function socialField(opts: {
+  label: string;
+  hosts: string[];
+  fromHandle: (handle: string) => string;
+}) {
+  return z
+    .string()
+    .trim()
+    .max(300, `${opts.label} link is too long.`)
+    .optional()
+    .transform((value, ctx) => {
+      const raw = (value ?? "").trim();
+      if (!raw) return undefined;
+
+      // Bare handle (no protocol, no dot) → build the canonical URL.
+      let s =
+        !/^https?:\/\//i.test(raw) && !raw.includes(".")
+          ? opts.fromHandle(raw.replace(/^@+/, ""))
+          : raw.replace(/^http:\/\//i, "https://");
+      if (!/^https?:\/\//i.test(s)) s = `https://${s}`;
+
+      let url: URL;
+      try {
+        url = new URL(s);
+      } catch {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: `Enter a valid ${opts.label} link.` });
+        return z.NEVER;
+      }
+      url.protocol = "https:";
+      const host = url.hostname.replace(/^www\./i, "").toLowerCase();
+      if (!opts.hosts.includes(host)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `That doesn't look like a ${opts.label} link.`,
+        });
+        return z.NEVER;
+      }
+      url.search = "";
+      url.hash = "";
+      return url.toString().replace(/\/$/, "");
+    });
+}
+
 export const socialLinksSchema = z
   .object({
-    instagram: optionalUrl(200),
-    facebook: optionalUrl(200),
-    youtube: optionalUrl(200),
+    facebook: socialField({
+      label: "Facebook",
+      hosts: ["facebook.com", "fb.com", "m.facebook.com"],
+      fromHandle: (h) => `https://facebook.com/${h}`,
+    }),
+    instagram: socialField({
+      label: "Instagram",
+      hosts: ["instagram.com"],
+      fromHandle: (h) => `https://instagram.com/${h}`,
+    }),
+    linkedin: socialField({
+      label: "LinkedIn",
+      hosts: ["linkedin.com"],
+      fromHandle: (h) => `https://linkedin.com/company/${h}`,
+    }),
+    youtube: socialField({
+      label: "YouTube",
+      hosts: ["youtube.com", "youtu.be"],
+      fromHandle: (h) => `https://youtube.com/@${h}`,
+    }),
+    tiktok: socialField({
+      label: "TikTok",
+      hosts: ["tiktok.com"],
+      fromHandle: (h) => `https://tiktok.com/@${h}`,
+    }),
   })
   .partial();
 
