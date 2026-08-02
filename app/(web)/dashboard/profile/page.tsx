@@ -6,6 +6,7 @@ import { SectionCard } from "@/components/layout/section-card";
 import { EmailPreferences } from "@/components/dashboard/email-preferences";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ProfileForm } from "@/components/dashboard/profile-form";
+import { AvatarUpload } from "@/components/dashboard/avatar-upload";
 import { ChangePasswordForm } from "@/components/dashboard/change-password-form";
 import { MfaSection } from "@/components/dashboard/mfa-section";
 
@@ -50,6 +51,13 @@ export default async function ProfilePage({
           </AlertDescription>
         </Alert>
       ) : null}
+
+      <SectionCard
+        title="Profile picture"
+        description="Shown in your dashboard and account menu — never on your public listings."
+      >
+        <AvatarUpload initialUrl={profile?.avatar_url ?? null} />
+      </SectionCard>
 
       <SectionCard
         title="Your details"

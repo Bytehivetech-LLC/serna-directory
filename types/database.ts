@@ -1320,6 +1320,7 @@ export type Database = {
           id: string;
           email: string;
           full_name: string | null;
+          avatar_url: string | null;
           role: Database["public"]["Enums"]["user_role"];
           is_verified: boolean;
           is_suspended: boolean;

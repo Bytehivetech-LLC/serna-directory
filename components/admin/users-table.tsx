@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowDown, ArrowUp, BadgeCheck, Ban } from "lucide-react";
 import { toast } from "sonner";
+import { AvatarBadge } from "@/components/ui/avatar-badge";
 import { cn } from "@/lib/utils/cn";
 import { formatDate } from "@/lib/utils/format";
 import { Badge } from "@/components/ui/badge";
@@ -166,8 +167,9 @@ export function UsersTable({
                 <td className="px-3 py-2.5">
                   <Link
                     href={`/admin/users/${u.id}`}
-                    className="font-semibold text-ink no-underline hover:text-indigo"
+                    className="flex items-center gap-2.5 font-semibold text-ink no-underline hover:text-indigo"
                   >
+                    <AvatarBadge url={u.avatar_url} name={u.full_name || u.email} size={30} />
                     {u.full_name || "—"}
                   </Link>
                 </td>

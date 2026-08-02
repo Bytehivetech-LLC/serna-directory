@@ -54,6 +54,35 @@ function toWebp(canvas: HTMLCanvasElement, quality: number): Promise<Blob> {
 }
 
 /**
+ * Square centre-crop → 512×512 WebP, EXIF stripped (canvas re-draw), for
+ * avatars. Compresses down until it's under ~1MB. Entirely in the browser.
+ */
+export async function processSquareAvatar(file: File): Promise<Blob> {
+  if (!file.type.startsWith("image/")) {
+    throw new Error("That file isn't an image.");
+  }
+  const img = await loadImage(file);
+  const side = Math.min(img.naturalWidth, img.naturalHeight);
+  const sx = Math.floor((img.naturalWidth - side) / 2);
+  const sy = Math.floor((img.naturalHeight - side) / 2);
+  const SIZE = 512;
+  const canvas = document.createElement("canvas");
+  canvas.width = SIZE;
+  canvas.height = SIZE;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Canvas not supported.");
+  ctx.drawImage(img, sx, sy, side, side, 0, 0, SIZE, SIZE);
+
+  const MAX_BYTES = 1024 * 1024;
+  for (const quality of [0.85, 0.75, 0.65, 0.55]) {
+    const blob = await toWebp(canvas, quality);
+    if (blob.size <= MAX_BYTES) return blob;
+  }
+  // Last resort — return the smallest we produced.
+  return toWebp(canvas, 0.5);
+}
+
+/**
  * Process a user-selected image entirely in the browser: strip EXIF, convert to
  * WebP, and emit a full image (≤2000px wide) plus a 400px thumbnail. Nothing is
  * uploaded here — that happens on submit.
