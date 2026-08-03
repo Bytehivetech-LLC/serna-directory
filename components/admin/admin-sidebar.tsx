@@ -15,6 +15,7 @@ import {
   Mail,
   Settings,
   ScrollText,
+  Stethoscope,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 
@@ -31,6 +32,7 @@ const ITEMS = [
   { href: "/admin/payments", label: "Payments", icon: CreditCard },
   { href: "/admin/settings", label: "Settings", icon: Settings },
   { href: "/admin/audit", label: "Audit log", icon: ScrollText },
+  { href: "/admin/system-check", label: "System check", icon: Stethoscope },
 ];
 
 export function AdminSidebar() {

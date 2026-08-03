@@ -23,3 +23,18 @@ export function reportError(error: unknown, context?: Record<string, unknown>): 
   console.error("[error]", safe, safeContext ?? "");
   // TODO(sentry): Sentry.captureException with { extra: safeContext }.
 }
+
+/**
+ * A short, human-readable reference shown on the error page and logged with the
+ * full error server-side, so a user can read "Reference: 7QK2M9" off the screen
+ * and it can be grepped in the logs. Uppercase, no ambiguous chars.
+ */
+export function newErrorRef(): string {
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let out = "";
+  for (let i = 0; i < 6; i++) {
+    const n = Math.floor(Math.random() * alphabet.length);
+    out += alphabet[n];
+  }
+  return out;
+}
