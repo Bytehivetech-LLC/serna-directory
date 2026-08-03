@@ -11,7 +11,12 @@ import { Toaster } from "@/components/ui/sonner";
 export async function generateMetadata(): Promise<Metadata> {
   // Serve the admin-uploaded favicon through Next metadata (not just storage).
   // Favicons cache hard, so bust with ?v=<updated_at> — the usual reason a new
-  // one "doesn't take". Falls back to the static /favicon.ico.
+  // one "doesn't take". Falls back to the brand mark at /public/favicon.svg.
+  //
+  // NOTE: there must be NO app/favicon.ico. That Next.js file convention serves
+  // at /favicon.ico and emits its own <link rel="icon">, which browsers prefer —
+  // it silently overrode the uploaded favicon (and shipped the stock
+  // create-next-app icon). Don't reintroduce it; this metadata is the one source.
   const { value, updatedAt } = await getSettingWithMeta("favicon_url");
   const faviconUrl = typeof value === "string" && value.trim() ? value.trim() : null;
 
@@ -31,7 +36,7 @@ export async function generateMetadata(): Promise<Metadata> {
       apple: [{ url: bust }],
     };
   } else {
-    icons = { icon: "/favicon.ico" };
+    icons = { icon: [{ url: "/favicon.svg", type: "image/svg+xml" }] };
   }
 
   return {
