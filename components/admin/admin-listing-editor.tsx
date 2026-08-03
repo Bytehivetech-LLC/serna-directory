@@ -162,23 +162,27 @@ export function AdminListingEditor({
         return;
       }
       const supabase = createClient();
-      await Promise.all(
+      const results = await Promise.all(
         res.uploads.map(async (u, i) => {
           const img = newImages[i];
-          if (!img) return;
-          await supabase.storage
+          if (!img) return true;
+          const a = await supabase.storage
             .from("listing-images")
-            .uploadToSignedUrl(u.fullPath, u.fullToken, img.fullBlob, {
-              contentType: "image/webp",
-            });
-          await supabase.storage
+            .uploadToSignedUrl(u.fullPath, u.fullToken, img.fullBlob, { contentType: "image/webp" });
+          const b = await supabase.storage
             .from("listing-images")
-            .uploadToSignedUrl(u.thumbPath, u.thumbToken, img.thumbBlob, {
-              contentType: "image/webp",
-            });
+            .uploadToSignedUrl(u.thumbPath, u.thumbToken, img.thumbBlob, { contentType: "image/webp" });
+          return !a.error && !b.error;
         }),
       );
-      toast.success(`${res.uploads.length} photo(s) added.`);
+      const failed = results.filter((ok) => !ok).length;
+      if (failed) {
+        toast.error(
+          `${failed} photo${failed === 1 ? "" : "s"} couldn't be stored — check the "listing-images" bucket exists.`,
+        );
+      } else {
+        toast.success(`${res.uploads.length} photo(s) added.`);
+      }
       setNewImages([]);
       router.refresh();
     });
