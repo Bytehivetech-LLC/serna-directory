@@ -41,13 +41,27 @@ const LABELS: Record<ColorKey, string> = {
   warnInk: "Warn text", warnStrong: "Warn strong", warnIcon: "Warn icon",
   danger: "Danger", dangerSoft: "Danger soft", track: "Progress track",
   headerBg: "Header background", headerText: "Header text",
+  headerBorder: "Header border", headerSearchBg: "Search background",
+  headerSearchText: "Search text", headerSearchBorder: "Search border",
+  headerSearchIcon: "Search icon / placeholder", headerButtonBg: "Button background",
+  headerButtonText: "Button text", headerButtonHoverBg: "Button hover",
+  headerLinkText: "Nav link", headerLinkHoverText: "Nav link hover",
 };
 
 const GROUPS: { title: string; keys: ColorKey[] }[] = [
   { title: "Text", keys: ["ink", "muted", "faint"] },
   { title: "Brand", keys: ["indigo", "indigoDeep", "violet", "violetSoft"] },
-  { title: "Surfaces", keys: ["bg", "card", "headerBg", "headerText"] },
+  { title: "Surfaces", keys: ["bg", "card"] },
   { title: "Borders", keys: ["border", "borderStrong"] },
+  {
+    title: "Header",
+    keys: [
+      "headerBg", "headerText", "headerBorder",
+      "headerSearchBg", "headerSearchText", "headerSearchBorder", "headerSearchIcon",
+      "headerButtonBg", "headerButtonText", "headerButtonHoverBg",
+      "headerLinkText", "headerLinkHoverText",
+    ],
+  },
   {
     title: "States",
     keys: [
@@ -342,10 +356,15 @@ function FontSelect({ label, value, onChange }: { label: string; value: string; 
 function ThemePreviewPane() {
   return (
     <div className="theme-preview space-y-4 rounded-2xl border border-border bg-bg p-4" style={{ fontFamily: "var(--font-body)" }}>
-      {/* Header miniature */}
-      <div className="flex items-center justify-between rounded-lg bg-header-bg px-3 py-2" style={{ borderRadius: "var(--radius-card)" }}>
+      {/* Header miniature — shows the search field, a nav link and the button so
+          the header-control colours are visible BEFORE publishing. */}
+      <div className="flex items-center gap-2 border-b border-header-border bg-header-bg px-3 py-2" style={{ borderRadius: "var(--radius-card)" }}>
         <span className="font-display text-sm font-bold text-header-text" style={{ fontFamily: "var(--font-display)" }}>Serna</span>
-        <span className="text-xs text-header-text/70">Directory</span>
+        <span className="ml-1 text-[11px] font-semibold uppercase tracking-wide text-header-link-text">Directory</span>
+        <div className="ml-auto flex items-center gap-2">
+          <span className="rounded-full border border-header-search-border bg-header-search-bg px-2 py-0.5 text-[11px] text-header-search-icon">Search…</span>
+          <span className="rounded-md bg-header-button-bg px-2 py-0.5 text-[11px] font-semibold text-header-button-text">Log in</span>
+        </div>
       </div>
 
       {/* Directory tile */}

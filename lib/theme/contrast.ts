@@ -52,6 +52,10 @@ export const CONTRAST_PAIRS: PairDef[] = [
   { label: "Warn text on warm", fg: "warnInk", bg: "warm", min: 4.5, blocking: true },
   { label: "Warn strong on warm", fg: "warnStrong", bg: "warm", min: 4.5, blocking: true },
   { label: "Warn icon on warm", fg: "warnIcon", bg: "warm", min: 3, blocking: true },
+  // Header controls — a white header with white controls must be unpublishable.
+  { label: "Search text on search field", fg: "headerSearchText", bg: "headerSearchBg", min: 4.5, blocking: true },
+  { label: "Header button text on button", fg: "headerButtonText", bg: "headerButtonBg", min: 4.5, blocking: true },
+  { label: "Header link on header", fg: "headerLinkText", bg: "headerBg", min: 4.5, blocking: true },
 ];
 
 export type ContrastResult = {
