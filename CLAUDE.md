@@ -106,6 +106,31 @@ Never read `.env.local` or `keys.txt`.
 
 ## Current state
 
+- **Post-launch fix rounds (branches `fix/admin-and-theme`, `fix/round-2`):**
+  - **Round 1** (fix backlog Sessions 1–7): Stripe-webhook idempotency lifecycle
+    + Blocker-2 guard-trigger fix; cross-deployment revalidation bridge
+    (`/api/revalidate` + `revalidateWeb`); admin create-user; logo-replaces-wordmark;
+    favicon via metadata; hero key-mismatch; shared `<ImageUploadField>`; theme
+    reaches public + surfaced guard errors; amber→theme tokens; **separate
+    admin_theme**; avatars; five-network social links; directory thumbnails;
+    server-side upload magic-byte verification; HSTS; sign-in reCAPTCHA;
+    **site-URL resolver** (`lib/site-url.ts`) + `/api/health`; `describeDbError`;
+    real cookie-preferences dialog; password rules + HIBP unpacking.
+  - **Round 2** (`docs/FIX-BACKLOG-2.md`): error boundaries show a reference id +
+    dev stack; **admin-only `/admin/system-check`** (`lib/admin/health-check.ts`,
+    `/api/health/deep`); listing page degrades + `error.tsx`; `/api/upload-url`
+    allows owner OR staff (service-role sign, cap skipped + audited); avatar/2FA
+    failures legible; one `--content-max` width; **configurable logo heights**;
+    **header-control theme colours** (search/buttons/links, contrast-guarded).
+    Item 9 part 1 (social moved above package) done; parts 2–4 (social as real
+    form_fields via JSON-path `column_name`) deferred as a risky untested
+    form-flow refactor.
+  - **DB setup:** `docs/APPLY-ALL-MIGRATIONS.sql` bundles all 20 migrations for
+    the Supabase SQL editor. Manual project settings still required: create the
+    **`avatars`** storage bucket, enable **TOTP MFA** (Authentication →
+    Multi-Factor), set `REVALIDATE_SECRET` on both Vercel projects, and set the
+    URLs in Admin → Settings → General.
+
 - Phases complete: **1 — Scaffold**, **2 — Supabase wiring & route protection**,
   **3 — Authentication**, **4 — Directory page**, **5 — Listing page**,
   **6 — Listing form**, **7 — Accounts & email**, **8 — Stripe**,
