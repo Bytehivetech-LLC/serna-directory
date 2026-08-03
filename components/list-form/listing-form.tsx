@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { X } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
@@ -388,6 +388,37 @@ export function ListingForm({
     return <SuccessScreen shareUrl={success.url} featured={success.featured} />;
   }
 
+  const socialCard = (
+    <SectionCard title="Social links" description="Optional — link the profiles families can follow you on.">
+      {showSocial ? (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          {SOCIAL_FIELDS.map((fld) => (
+            <div key={fld.key} className="space-y-1.5">
+              <label htmlFor={`social-${fld.key}`} className="text-sm font-semibold text-ink">
+                {fld.label}
+              </label>
+              <input
+                id={`social-${fld.key}`}
+                value={social[fld.key] ?? ""}
+                onChange={(e) => setSocial((s) => ({ ...s, [fld.key]: e.target.value }))}
+                placeholder={fld.placeholder}
+                className="h-10 w-full rounded-lg border border-border bg-card px-3 text-sm text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet"
+              />
+            </div>
+          ))}
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setShowSocial(true)}
+          className="inline-flex items-center gap-2 rounded-lg border border-border-strong px-3 py-2 text-sm font-semibold text-ink hover:bg-secondary"
+        >
+          + Add social links
+        </button>
+      )}
+    </SectionCard>
+  );
+
   return (
     <div>
       {/* CATEGORY */}
@@ -443,7 +474,8 @@ export function ListingForm({
 
           {config.sections
             .filter((s) => s.key !== "category")
-            .map((section) => (
+            .map((section) => {
+              const card = (
               <SectionCard
                 key={section.id}
                 title={
@@ -554,36 +586,20 @@ export function ListingForm({
                   />
                 )}
               </SectionCard>
-            ))}
-
-          <SectionCard title="Social links" description="Optional — link the profiles families can follow you on.">
-            {showSocial ? (
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                {SOCIAL_FIELDS.map((f) => (
-                  <div key={f.key} className="space-y-1.5">
-                    <label htmlFor={`social-${f.key}`} className="text-sm font-semibold text-ink">
-                      {f.label}
-                    </label>
-                    <input
-                      id={`social-${f.key}`}
-                      value={social[f.key] ?? ""}
-                      onChange={(e) => setSocial((s) => ({ ...s, [f.key]: e.target.value }))}
-                      placeholder={f.placeholder}
-                      className="h-10 w-full rounded-lg border border-border bg-card px-3 text-sm text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet"
-                    />
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <button
-                type="button"
-                onClick={() => setShowSocial(true)}
-                className="inline-flex items-center gap-2 rounded-lg border border-border-strong px-3 py-2 text-sm font-semibold text-ink hover:bg-secondary"
-              >
-                + Add social links
-              </button>
-            )}
-          </SectionCard>
+              );
+              // Social links go BELOW everything else but ABOVE the package
+              // section — choosing a tier should be the last decision before
+              // submit, not before someone types their Instagram handle.
+              if (section.key === "package") {
+                return (
+                  <Fragment key={section.id}>
+                    {socialCard}
+                    {card}
+                  </Fragment>
+                );
+              }
+              return card;
+            })}
 
           {reviewNote ? (
             <div className="rounded-xl border border-warm-border bg-warm px-5 py-4 text-sm text-warn-ink">
