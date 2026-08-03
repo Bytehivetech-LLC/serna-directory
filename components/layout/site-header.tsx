@@ -32,6 +32,8 @@ export type SiteHeaderProps = {
   brandName?: string;
   /** Optional logo image; falls back to the mark letter. */
   logoUrl?: string;
+  /** Admin-configured header logo height in px. */
+  logoHeight?: number;
   /** Single letter shown in the gradient mark when there's no logo image. */
   markLetter?: string;
   /** Where the wordmark links to (the public directory home by default). */
@@ -43,21 +45,22 @@ const DEFAULT_NAV: NavItem[] = [
   { label: "List your business", href: "/list-a-program" },
 ];
 
-function Brand({ name, href, logoUrl, markLetter }: { name: string; href: string; logoUrl?: string; markLetter: string }) {
+function Brand({ name, href, logoUrl, markLetter, logoHeight = 32 }: { name: string; href: string; logoUrl?: string; markLetter: string; logoHeight?: number }) {
   return (
     <Link
       href={href}
       className="flex items-center gap-2.5 text-header-text no-underline"
     >
       {logoUrl ? (
-        // A real logo REPLACES the mark + wordmark — never both. Fixed height
-        // (width auto to keep aspect ratio) prevents vertical layout shift.
+        // A real logo REPLACES the mark + wordmark — never both. Admin-set height,
+        // width auto (keeps aspect ratio), explicit height attr → no layout shift.
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={logoUrl}
           alt={name}
-          height={32}
-          className="h-8 w-auto max-w-[200px] object-contain"
+          height={logoHeight}
+          style={{ height: logoHeight }}
+          className="w-auto max-w-[240px] object-contain"
         />
       ) : (
         <>
@@ -97,7 +100,7 @@ function HeaderSearch({
       className={cn("relative", className)}
     >
       <Search
-        className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/60"
+        className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-header-search-icon"
         aria-hidden
       />
       <input
@@ -106,7 +109,7 @@ function HeaderSearch({
         onChange={(e) => setQ(e.target.value)}
         placeholder="Search directory"
         aria-label="Search directory"
-        className="h-9 w-44 rounded-full border border-white/15 bg-white/10 pl-9 pr-3 text-sm text-white placeholder:text-white/55 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet"
+        className="h-9 w-44 rounded-full border border-header-search-border bg-header-search-bg pl-9 pr-3 text-sm text-header-search-text placeholder:text-header-search-icon focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet"
       />
     </form>
   );
@@ -120,6 +123,7 @@ export function SiteHeader({
   userName,
   brandName = "Serna Educational Services",
   logoUrl,
+  logoHeight,
   markLetter = "S",
   homeHref = "/",
 }: SiteHeaderProps) {
@@ -130,9 +134,9 @@ export function SiteHeader({
     href === "/" ? current === "/" : current === href || current.startsWith(`${href}/`);
 
   return (
-    <header className="bg-header-bg text-header-text">
-      <div className="mx-auto flex max-w-[1120px] items-center gap-4 px-6 py-3.5">
-        <Brand name={brandName} href={homeHref} logoUrl={logoUrl} markLetter={markLetter} />
+    <header className="border-b border-header-border bg-header-bg text-header-text">
+      <div className="mx-auto flex max-w-[var(--content-max)] items-center gap-4 px-6 py-3.5">
+        <Brand name={brandName} href={homeHref} logoUrl={logoUrl} markLetter={markLetter} logoHeight={logoHeight} />
 
         {/* Desktop nav + search + actions */}
         <div className="ml-auto hidden items-center gap-5 md:flex">
@@ -144,8 +148,8 @@ export function SiteHeader({
                 className={cn(
                   "text-xs font-semibold uppercase tracking-[0.08em] no-underline transition-colors",
                   isActive(item.href)
-                    ? "border-b-2 border-violet pb-0.5 text-header-text"
-                    : "text-header-text/70 hover:text-header-text",
+                    ? "border-b-2 border-violet pb-0.5 text-header-link-hover-text"
+                    : "text-header-link-text hover:text-header-link-hover-text",
                 )}
               >
                 {item.label}
@@ -167,9 +171,8 @@ export function SiteHeader({
           ) : (
             <Button
               asChild
-              variant="ghost"
               size="sm"
-              className="text-header-text hover:bg-white/10 hover:text-header-text"
+              className="bg-header-button-bg text-header-button-text hover:bg-header-button-hover-bg"
             >
               <Link href="/login">Log in</Link>
             </Button>

@@ -12,6 +12,11 @@
  * so the site can never render unstyled.
  */
 :root {
+  /* One content width for the header, footer, and page container. A page that
+     genuinely needs a different width passes a prop — no per-page max-w overrides. */
+  --content-max: 1280px;
+  --content-narrow: 720px;
+
   /* ---- brand channels ---- */
   --c-ink: 32 31 58;
   --c-muted: 110 108 138;

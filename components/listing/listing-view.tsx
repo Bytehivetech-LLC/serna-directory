@@ -32,16 +32,26 @@ const ESA_TEXT: Record<string, string> = {
 
 function DescriptionBody({ listing }: { listing: ListingDetail }) {
   if (listing.descriptionHtml && listing.descriptionHtml.trim()) {
-    const clean = DOMPurify.sanitize(listing.descriptionHtml, {
-      ALLOWED_TAGS: ["p", "br", "strong", "em", "b", "i", "ul", "ol", "li", "a"],
-      ALLOWED_ATTR: ["href", "target", "rel"],
-    });
-    return (
-      <div
-        className="space-y-3 text-[15px] leading-relaxed text-ink [&_a]:text-indigo [&_a]:underline [&_li]:ml-4 [&_ul]:list-disc"
-        dangerouslySetInnerHTML={{ __html: clean }}
-      />
-    );
+    // DOMPurify runs server-side here (isomorphic-dompurify). If the DOM shim
+    // ever fails to load it throws — that must never take the page down, so fall
+    // through to the plain-text path below rather than crashing.
+    let clean: string | null = null;
+    try {
+      clean = DOMPurify.sanitize(listing.descriptionHtml, {
+        ALLOWED_TAGS: ["p", "br", "strong", "em", "b", "i", "ul", "ol", "li", "a"],
+        ALLOWED_ATTR: ["href", "target", "rel"],
+      });
+    } catch {
+      clean = null;
+    }
+    if (clean !== null) {
+      return (
+        <div
+          className="space-y-3 text-[15px] leading-relaxed text-ink [&_a]:text-indigo [&_a]:underline [&_li]:ml-4 [&_ul]:list-disc"
+          dangerouslySetInnerHTML={{ __html: clean }}
+        />
+      );
+    }
   }
   if (listing.description && listing.description.trim()) {
     const paragraphs = listing.description

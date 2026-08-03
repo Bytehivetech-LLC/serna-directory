@@ -19,7 +19,7 @@ export function PageContainer({
     <div
       className={cn(
         "mx-auto w-full px-6",
-        width === "narrow" ? "max-w-[720px]" : "max-w-[1060px]",
+        width === "narrow" ? "max-w-[var(--content-narrow)]" : "max-w-[var(--content-max)]",
         className,
       )}
       {...props}

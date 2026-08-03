@@ -65,6 +65,16 @@ const config: Config = {
         "brand-bar-text": channel("--c-brand-bar-text"),
         "header-bg": channel("--c-header-bg"),
         "header-text": channel("--c-header-text"),
+        "header-border": channel("--c-header-border"),
+        "header-search-bg": channel("--c-header-search-bg"),
+        "header-search-text": channel("--c-header-search-text"),
+        "header-search-border": channel("--c-header-search-border"),
+        "header-search-icon": channel("--c-header-search-icon"),
+        "header-button-bg": channel("--c-header-button-bg"),
+        "header-button-text": channel("--c-header-button-text"),
+        "header-button-hover-bg": channel("--c-header-button-hover-bg"),
+        "header-link-text": channel("--c-header-link-text"),
+        "header-link-hover-text": channel("--c-header-link-hover-text"),
 
         /* ---- shadcn/ui semantic layer, mapped onto brand tokens ---- */
         background: channel("--background"),

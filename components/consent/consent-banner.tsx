@@ -97,7 +97,7 @@ export function ConsentBanner({ enabled }: { enabled: boolean }) {
           aria-label="Cookie consent"
           className="fixed inset-x-0 bottom-0 z-50 border-t border-border bg-card/98 backdrop-blur"
         >
-          <div className="mx-auto flex max-w-[1060px] flex-col gap-3 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="mx-auto flex max-w-[var(--content-max)] flex-col gap-3 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm text-ink">
               We use cookies for essential features and, with your OK, analytics and marketing. You choose.
             </p>

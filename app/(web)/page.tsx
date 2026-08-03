@@ -80,7 +80,7 @@ export default async function DirectoryHomePage({
   };
 
   return (
-    <PageContainer className="max-w-[1280px] py-8">
+    <PageContainer className="py-8">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(itemListLd) }} />
       {/* Hero sits above the filter bar + grid; hidden entirely when both values
           are empty so we never leave a blank band. */}

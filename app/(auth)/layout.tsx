@@ -9,7 +9,14 @@ import { getSettings } from "@/lib/settings";
 export default async function AuthLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
-  const settings = await getSettings(["site_name", "logo_url", "logo_mark_letter"]);
+  const settings = await getSettings([
+    "site_name",
+    "logo_url",
+    "logo_mark_letter",
+    "logo_height_auth",
+  ]);
+  const logoHeight =
+    typeof settings.logo_height_auth === "number" ? settings.logo_height_auth : 40;
   const brandName =
     typeof settings.site_name === "string" && settings.site_name
       ? settings.site_name
@@ -34,8 +41,9 @@ export default async function AuthLayout({
             <img
               src={logoUrl}
               alt={brandName}
-              height={40}
-              className="h-10 w-auto max-w-[240px] object-contain"
+              height={logoHeight}
+              style={{ height: logoHeight }}
+              className="w-auto max-w-[260px] object-contain"
             />
           ) : (
             <>

@@ -373,12 +373,16 @@ export async function enrollTotpAction(): Promise<EnrollResult> {
     } = await supabase.auth.getUser();
     if (!user) return { ok: false, error: "Please sign in again." };
 
-    // Clear any half-finished enrolment so a retry always works.
+    // Clear ALL half-finished enrolments so a retry always works — Supabase caps
+    // the number of factors, and a single stale one used to be enough to wedge
+    // re-enrolment.
     const { data: factors } = await supabase.auth.mfa.listFactors();
-    const stale = factors?.all?.find(
+    const stale = (factors?.all ?? []).filter(
       (f) => f.factor_type === "totp" && f.status === "unverified",
     );
-    if (stale) await supabase.auth.mfa.unenroll({ factorId: stale.id });
+    for (const f of stale) {
+      await supabase.auth.mfa.unenroll({ factorId: f.id }).catch(() => {});
+    }
 
     const { data, error } = await supabase.auth.mfa.enroll({
       factorType: "totp",
@@ -425,21 +429,25 @@ export async function verifyTotpAction(
     };
   }
 
-  const supabase = await createClient();
-  const { error } = await supabase.auth.mfa.challengeAndVerify({
-    factorId: parsed.data.factorId,
-    code: parsed.data.code,
-  });
-  if (error) {
-    return {
-      ok: false,
-      error:
-        "That code didn't match. Check your authenticator app and try again.",
-    };
+  try {
+    const supabase = await createClient();
+    const { error } = await supabase.auth.mfa.challengeAndVerify({
+      factorId: parsed.data.factorId,
+      code: parsed.data.code,
+    });
+    if (error) {
+      return {
+        ok: false,
+        error:
+          "That code didn't match. Check your authenticator app and try again.",
+      };
+    }
+    revalidatePath("/dashboard/profile");
+    return { ok: true };
+  } catch (e) {
+    console.error("[mfa] verify threw:", e);
+    return { ok: false, error: "Couldn't verify that code. Please try again." };
   }
-
-  revalidatePath("/dashboard/profile");
-  return { ok: true };
 }
 
 export async function unenrollTotpAction(

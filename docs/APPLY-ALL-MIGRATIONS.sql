@@ -1,7 +1,7 @@
 -- ALL MIGRATIONS, in order. Paste into the Supabase SQL editor and Run.
 -- Safe to re-run: create-or-replace / if-not-exists / on-conflict-do-nothing
 -- (listing_entitlements is dropped+recreated because its return shape changed).
--- Generated 18 files.
+-- Generated 20 files.
 
 
 -- ============================================================
@@ -905,3 +905,77 @@ begin
 
   return new;
 end; $$;
+
+-- ============================================================
+-- 20260803220000_logo_sizes.sql
+-- ============================================================
+-- Round 2 #7 — admin-configurable logo heights (px), one per placement.
+-- Seeded with the current hardcoded values so nothing changes on upgrade.
+
+insert into public.site_settings (key, value, is_public)
+values
+  ('logo_height_header', to_jsonb(32), true),
+  ('logo_height_footer', to_jsonb(28), true),
+  ('logo_height_auth',   to_jsonb(40), true)
+on conflict (key) do nothing;
+
+-- Validate the three numeric settings server-side too (like the other numeric
+-- settings): integer within the documented range.
+create or replace function public.validate_logo_size_setting()
+returns trigger
+language plpgsql
+as $$
+declare n numeric;
+begin
+  if new.key not in ('logo_height_header', 'logo_height_footer', 'logo_height_auth') then
+    return new;
+  end if;
+  if jsonb_typeof(new.value) <> 'number' then
+    raise exception 'Logo height must be a whole number of pixels.';
+  end if;
+  n := (new.value)::text::numeric;
+  if n <> floor(n) then
+    raise exception 'Logo height must be a whole number of pixels.';
+  end if;
+  if new.key = 'logo_height_header' and (n < 20 or n > 64) then
+    raise exception 'Header logo height must be 20-64px.';
+  elsif new.key = 'logo_height_footer' and (n < 20 or n > 56) then
+    raise exception 'Footer logo height must be 20-56px.';
+  elsif new.key = 'logo_height_auth' and (n < 24 or n > 80) then
+    raise exception 'Auth logo height must be 24-80px.';
+  end if;
+  return new;
+end; $$;
+
+drop trigger if exists trg_validate_logo_size on public.site_settings;
+create trigger trg_validate_logo_size
+  before insert or update on public.site_settings
+  for each row execute function public.validate_logo_size_setting();
+
+-- ============================================================
+-- 20260803230000_header_theme_keys.sql
+-- ============================================================
+-- Round 2 #8 — header-control colours in the theme. MERGE the new keys into any
+-- existing theme / theme_draft / admin_theme rows WITHOUT overwriting a value the
+-- admin already customised (defaults sit UNDER the existing value).
+--
+-- validate_theme_setting (see 20260803210000) validates ANY '#'-prefixed value
+-- as a 6-digit hex, so these new hex keys are already covered — no trigger change
+-- is needed to satisfy "hex-only".
+
+update public.site_settings
+set value =
+  jsonb_build_object(
+    'headerBorder',        '#34327e',
+    'headerSearchBg',      '#35357e',
+    'headerSearchText',    '#ffffff',
+    'headerSearchBorder',  '#4a4a94',
+    'headerSearchIcon',    '#b4b4d8',
+    'headerButtonBg',      '#6c4ce8',
+    'headerButtonText',    '#ffffff',
+    'headerButtonHoverBg', '#5a3fd0',
+    'headerLinkText',      '#cbcbe4',
+    'headerLinkHoverText', '#ffffff'
+  ) || value
+where key in ('theme', 'theme_draft', 'admin_theme')
+  and jsonb_typeof(value) = 'object';
