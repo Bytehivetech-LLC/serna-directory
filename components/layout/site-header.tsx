@@ -131,7 +131,7 @@ export function SiteHeader({
 
   return (
     <header className="bg-header-bg text-header-text">
-      <div className="mx-auto flex max-w-[1120px] items-center gap-4 px-6 py-3.5">
+      <div className="mx-auto flex max-w-[var(--content-max)] items-center gap-4 px-6 py-3.5">
         <Brand name={brandName} href={homeHref} logoUrl={logoUrl} markLetter={markLetter} />
 
         {/* Desktop nav + search + actions */}

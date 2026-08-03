@@ -30,7 +30,7 @@ export function SiteFooter({
   const year = 2026;
   return (
     <footer className="mt-auto border-t border-border bg-card">
-      <div className="mx-auto flex max-w-[1060px] flex-col gap-6 px-6 py-10 sm:flex-row sm:items-center sm:justify-between">
+      <div className="mx-auto flex max-w-[var(--content-max)] flex-col items-center gap-6 px-6 py-10 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-2.5">
           {logoUrl ? (
             // Logo REPLACES the mark + wordmark — never both. 28px tall.
@@ -54,7 +54,7 @@ export function SiteFooter({
           )}
         </div>
 
-        <nav className="flex flex-wrap items-center gap-x-6 gap-y-2">
+        <nav className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 sm:justify-start">
           {nav.map((item) => (
             <Link
               key={item.href}
@@ -71,7 +71,7 @@ export function SiteFooter({
         </nav>
       </div>
       <div className="border-t border-border">
-        <p className="mx-auto max-w-[1060px] px-6 py-4 text-xs text-faint">
+        <p className="mx-auto max-w-[var(--content-max)] px-6 py-4 text-center text-xs text-faint">
           {footerText && footerText.trim()
             ? footerText
             : `© ${year} ${brandName}. Arizona homeschool & education directory.`}
