@@ -3,7 +3,7 @@
 import { headers } from "next/headers";
 import { siteUrl } from "@/lib/site-url";
 import { revalidatePath } from "next/cache";
-import DOMPurify from "isomorphic-dompurify";
+import { buildDescriptionHtml as descriptionHtml } from "@/lib/utils/safe-sanitize";
 import { createClient } from "@/lib/supabase/server";
 import { requireUser } from "@/lib/auth/guards";
 import { requireOwnedListing } from "@/lib/dashboard/guards";
@@ -29,19 +29,6 @@ type MaterialSnapshot = {
   state: string | null;
   postal_code: string | null;
 };
-
-function descriptionHtml(text: string): string {
-  const paragraphs = text
-    .split(/\n{2,}/)
-    .map((p) => p.trim())
-    .filter(Boolean)
-    .map((p) => `<p>${p.replace(/\n/g, "<br>")}</p>`)
-    .join("");
-  return DOMPurify.sanitize(paragraphs, {
-    ALLOWED_TAGS: ["p", "br", "strong", "em", "b", "i", "ul", "ol", "li", "a"],
-    ALLOWED_ATTR: ["href", "target", "rel"],
-  });
-}
 
 function siteOrigin(h: Headers): string {
   const host = h.get("x-forwarded-host") ?? h.get("host");
