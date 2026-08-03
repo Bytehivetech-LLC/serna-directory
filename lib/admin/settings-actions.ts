@@ -32,6 +32,9 @@ const brandingSchema = z.object({
   hero_heading: z.string().trim().max(200).optional().nullable(),
   hero_subheading: z.string().trim().max(400).optional().nullable(),
   footer_text: z.string().trim().max(600).optional().nullable(),
+  logo_height_header: z.number().int().min(20).max(64).default(32),
+  logo_height_footer: z.number().int().min(20).max(56).default(28),
+  logo_height_auth: z.number().int().min(24).max(80).default(40),
 });
 
 export async function updateBrandingAction(input: unknown): Promise<AdminActionResult> {
@@ -46,6 +49,9 @@ export async function updateBrandingAction(input: unknown): Promise<AdminActionR
       hero_heading: d.hero_heading ?? "",
       hero_subheading: d.hero_subheading ?? "",
       footer_text: d.footer_text ?? "",
+      logo_height_header: d.logo_height_header,
+      logo_height_footer: d.logo_height_footer,
+      logo_height_auth: d.logo_height_auth,
     },
     "settings.branding",
   );

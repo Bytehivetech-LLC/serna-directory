@@ -184,6 +184,34 @@ function GeneralTab({
 
 /* --------------------------------------------------------------- branding --- */
 
+function LogoSizeRow({
+  label, hint, min, max, value, onChange, logoUrl, previewClass,
+}: {
+  label: string; hint: string; min: number; max: number;
+  value: number; onChange: (v: number) => void; logoUrl: string; previewClass: string;
+}) {
+  return (
+    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
+      <div className="sm:w-40">
+        <Label className="text-sm">{label}</Label>
+        <div className="mt-1 flex items-center gap-2">
+          <Input
+            type="number" min={min} max={max} value={value}
+            onChange={(e) => onChange(Math.min(max, Math.max(min, Number(e.target.value) || min)))}
+            className="w-20"
+          />
+          <span className="text-xs text-muted-foreground">px · {hint}</span>
+        </div>
+      </div>
+      {/* Preview on the ACTUAL background this logo sits on. */}
+      <div className={`flex flex-1 items-center rounded-lg px-4 py-3 ${previewClass}`}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={logoUrl} alt="" style={{ height: value }} className="w-auto max-w-[220px] object-contain" />
+      </div>
+    </div>
+  );
+}
+
 function BrandingTab({ settings }: { settings: SettingsMap }) {
   const { pending, run } = useAct();
   const router = useRouter();
@@ -196,7 +224,13 @@ function BrandingTab({ settings }: { settings: SettingsMap }) {
   });
   const logoUrl = str(settings, "logo_url");
   const faviconUrl = str(settings, "favicon_url");
+  const [sizes, setSizes] = useState({
+    logo_height_header: num(settings, "logo_height_header", 32),
+    logo_height_footer: num(settings, "logo_height_footer", 28),
+    logo_height_auth: num(settings, "logo_height_auth", 40),
+  });
   const set = <K extends keyof typeof f>(k: K, v: string) => setF((p) => ({ ...p, [k]: v }));
+  const setSize = (k: keyof typeof sizes, v: number) => setSizes((p) => ({ ...p, [k]: v }));
 
   async function uploadImage(kind: "logo" | "favicon", file: File): Promise<UploadResult> {
     const ext = file.name.split(".").pop() ?? "png";
@@ -238,6 +272,28 @@ function BrandingTab({ settings }: { settings: SettingsMap }) {
         </div>
       </SectionCard>
 
+      {logoUrl ? (
+        <SectionCard title="Logo size">
+          <div className="space-y-4">
+            <LogoSizeRow
+              label="Header" hint="20–64px" min={20} max={64}
+              value={sizes.logo_height_header} onChange={(v) => setSize("logo_height_header", v)}
+              logoUrl={logoUrl} previewClass="bg-header-bg"
+            />
+            <LogoSizeRow
+              label="Footer" hint="20–56px" min={20} max={56}
+              value={sizes.logo_height_footer} onChange={(v) => setSize("logo_height_footer", v)}
+              logoUrl={logoUrl} previewClass="bg-card border border-border"
+            />
+            <LogoSizeRow
+              label="Auth pages" hint="24–80px" min={24} max={80}
+              value={sizes.logo_height_auth} onChange={(v) => setSize("logo_height_auth", v)}
+              logoUrl={logoUrl} previewClass="bg-background border border-border"
+            />
+          </div>
+        </SectionCard>
+      ) : null}
+
       <SectionCard title="Homepage & footer">
         <div className="space-y-4">
           <Field label="Hero heading"><Input value={f.hero_heading} onChange={(e) => set("hero_heading", e.target.value)} /></Field>
@@ -247,7 +303,7 @@ function BrandingTab({ settings }: { settings: SettingsMap }) {
       </SectionCard>
 
       <div className="flex justify-end">
-        <Button disabled={pending} onClick={() => run(() => updateBrandingAction(f))}>Save branding</Button>
+        <Button disabled={pending} onClick={() => run(() => updateBrandingAction({ ...f, ...sizes }))}>Save branding</Button>
       </div>
     </div>
   );

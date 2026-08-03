@@ -11,7 +11,7 @@ export default async function WebLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   const [session, settings, supabase] = await Promise.all([
     getSession(),
-    getSettings(["site_name", "logo_url", "logo_mark_letter", "footer_text", "consent_banner_enabled"]),
+    getSettings(["site_name", "logo_url", "logo_mark_letter", "footer_text", "consent_banner_enabled", "logo_height_header", "logo_height_footer"]),
     createClient(),
   ]);
 
@@ -43,6 +43,9 @@ export default async function WebLayout({
     typeof settings.footer_text === "string" ? settings.footer_text : undefined;
 
   const consentEnabled = settings.consent_banner_enabled === true;
+  const num = (v: unknown, d: number) => (typeof v === "number" ? v : d);
+  const logoHeightHeader = num(settings.logo_height_header, 32);
+  const logoHeightFooter = num(settings.logo_height_footer, 28);
 
   // Avatar for the header (when signed in).
   let avatarUrl: string | undefined;
@@ -68,6 +71,7 @@ export default async function WebLayout({
         userName={userName}
         brandName={brandName}
         logoUrl={logoUrl}
+        logoHeight={logoHeightHeader}
         markLetter={markLetter}
         nav={headerNav.length ? headerNav : undefined}
       />
@@ -76,6 +80,7 @@ export default async function WebLayout({
         brandName={brandName}
         markLetter={markLetter}
         logoUrl={logoUrl}
+        logoHeight={logoHeightFooter}
         footerText={footerText}
         consentEnabled={consentEnabled}
         nav={footerNav.length ? footerNav : undefined}

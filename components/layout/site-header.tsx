@@ -32,6 +32,8 @@ export type SiteHeaderProps = {
   brandName?: string;
   /** Optional logo image; falls back to the mark letter. */
   logoUrl?: string;
+  /** Admin-configured header logo height in px. */
+  logoHeight?: number;
   /** Single letter shown in the gradient mark when there's no logo image. */
   markLetter?: string;
   /** Where the wordmark links to (the public directory home by default). */
@@ -43,21 +45,22 @@ const DEFAULT_NAV: NavItem[] = [
   { label: "List your business", href: "/list-a-program" },
 ];
 
-function Brand({ name, href, logoUrl, markLetter }: { name: string; href: string; logoUrl?: string; markLetter: string }) {
+function Brand({ name, href, logoUrl, markLetter, logoHeight = 32 }: { name: string; href: string; logoUrl?: string; markLetter: string; logoHeight?: number }) {
   return (
     <Link
       href={href}
       className="flex items-center gap-2.5 text-header-text no-underline"
     >
       {logoUrl ? (
-        // A real logo REPLACES the mark + wordmark — never both. Fixed height
-        // (width auto to keep aspect ratio) prevents vertical layout shift.
+        // A real logo REPLACES the mark + wordmark — never both. Admin-set height,
+        // width auto (keeps aspect ratio), explicit height attr → no layout shift.
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={logoUrl}
           alt={name}
-          height={32}
-          className="h-8 w-auto max-w-[200px] object-contain"
+          height={logoHeight}
+          style={{ height: logoHeight }}
+          className="w-auto max-w-[240px] object-contain"
         />
       ) : (
         <>
@@ -120,6 +123,7 @@ export function SiteHeader({
   userName,
   brandName = "Serna Educational Services",
   logoUrl,
+  logoHeight,
   markLetter = "S",
   homeHref = "/",
 }: SiteHeaderProps) {
@@ -132,7 +136,7 @@ export function SiteHeader({
   return (
     <header className="bg-header-bg text-header-text">
       <div className="mx-auto flex max-w-[var(--content-max)] items-center gap-4 px-6 py-3.5">
-        <Brand name={brandName} href={homeHref} logoUrl={logoUrl} markLetter={markLetter} />
+        <Brand name={brandName} href={homeHref} logoUrl={logoUrl} markLetter={markLetter} logoHeight={logoHeight} />
 
         {/* Desktop nav + search + actions */}
         <div className="ml-auto hidden items-center gap-5 md:flex">

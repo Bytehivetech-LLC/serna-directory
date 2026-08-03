@@ -8,6 +8,8 @@ export type SiteFooterProps = {
   markLetter?: string;
   /** Optional logo image; when present it REPLACES the mark + wordmark. */
   logoUrl?: string;
+  /** Admin-configured footer logo height in px. */
+  logoHeight?: number;
   footerText?: string;
   /** Whether the consent banner is enabled (hides the reopen link when off). */
   consentEnabled?: boolean;
@@ -24,6 +26,7 @@ export function SiteFooter({
   brandName = "Serna Educational Services",
   markLetter = "S",
   logoUrl,
+  logoHeight = 28,
   footerText,
   consentEnabled = true,
 }: SiteFooterProps) {
@@ -38,8 +41,9 @@ export function SiteFooter({
             <img
               src={logoUrl}
               alt={brandName}
-              height={28}
-              className="h-7 w-auto max-w-[180px] object-contain"
+              height={logoHeight}
+              style={{ height: logoHeight }}
+              className="w-auto max-w-[200px] object-contain"
             />
           ) : (
             <>
