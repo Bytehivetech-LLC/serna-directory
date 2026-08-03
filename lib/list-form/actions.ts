@@ -2,7 +2,7 @@
 
 import { headers } from "next/headers";
 import { siteUrl } from "@/lib/site-url";
-import DOMPurify from "isomorphic-dompurify";
+import { buildDescriptionHtml as descriptionHtml } from "@/lib/utils/safe-sanitize";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { verifyRecaptcha } from "@/lib/security/recaptcha";
@@ -54,19 +54,6 @@ function siteOrigin(h: Headers): string {
     return `${proto}://${host}`;
   }
   return siteUrl();
-}
-
-function descriptionHtml(text: string): string {
-  const paragraphs = text
-    .split(/\n{2,}/)
-    .map((p) => p.trim())
-    .filter(Boolean)
-    .map((p) => `<p>${p.replace(/\n/g, "<br>")}</p>`)
-    .join("");
-  return DOMPurify.sanitize(paragraphs, {
-    ALLOWED_TAGS: ["p", "br", "strong", "em", "b", "i", "ul", "ol", "li", "a"],
-    ALLOWED_ATTR: ["href", "target", "rel"],
-  });
 }
 
 type AdminClient = ReturnType<typeof createAdminClient>;

@@ -307,17 +307,23 @@ export async function updateProfileAction(
   }
   const { fullName, phone, businessAddress } = parsed.data;
 
-  const { error } = await supabase
-    .from("profiles")
-    .update({
-      full_name: fullName,
-      phone: phone ?? null,
-      business_address: businessAddress ?? null,
-      onboarding_complete: true,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", user.id);
-  if (error) {
+  try {
+    const { error } = await supabase
+      .from("profiles")
+      .update({
+        full_name: fullName,
+        phone: phone ?? null,
+        business_address: businessAddress ?? null,
+        onboarding_complete: true,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", user.id);
+    if (error) {
+      console.error("[profile] update failed:", error.message);
+      return { ok: false, error: "We couldn't save your profile. Please try again." };
+    }
+  } catch (e) {
+    console.error("[profile] update threw:", e);
     return { ok: false, error: "We couldn't save your profile. Please try again." };
   }
 
