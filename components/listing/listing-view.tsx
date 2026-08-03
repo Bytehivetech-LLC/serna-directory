@@ -1,4 +1,3 @@
-import DOMPurify from "isomorphic-dompurify";
 import {
   BadgeCheck,
   Clock,
@@ -30,17 +29,40 @@ const ESA_TEXT: Record<string, string> = {
   unsure: "Not sure",
 };
 
+// isomorphic-dompurify pulls in jsdom, whose module init can THROW in some
+// serverless production builds (FUNCTION_INVOCATION_FAILED before any error
+// boundary can catch it) even though it works in local dev. Importing it at
+// module scope would take the whole listing route down. Load it lazily inside a
+// guard instead, so a failure degrades to plain text rather than a 500.
+type Sanitizer = { sanitize: (dirty: string, opts?: unknown) => string };
+let purifyResolved = false;
+let purify: Sanitizer | null = null;
+function getSanitizer(): Sanitizer | null {
+  if (purifyResolved) return purify;
+  purifyResolved = true;
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const mod = require("isomorphic-dompurify");
+    purify = (mod?.default ?? mod) as Sanitizer;
+  } catch {
+    purify = null;
+  }
+  return purify;
+}
+
 function DescriptionBody({ listing }: { listing: ListingDetail }) {
   if (listing.descriptionHtml && listing.descriptionHtml.trim()) {
-    // DOMPurify runs server-side here (isomorphic-dompurify). If the DOM shim
-    // ever fails to load it throws — that must never take the page down, so fall
-    // through to the plain-text path below rather than crashing.
+    // Sanitize the stored HTML; if the sanitizer can't load or throws, fall
+    // through to the plain-text path rather than crashing the page.
     let clean: string | null = null;
+    const DOMPurify = getSanitizer();
     try {
-      clean = DOMPurify.sanitize(listing.descriptionHtml, {
-        ALLOWED_TAGS: ["p", "br", "strong", "em", "b", "i", "ul", "ol", "li", "a"],
-        ALLOWED_ATTR: ["href", "target", "rel"],
-      });
+      clean = DOMPurify
+        ? DOMPurify.sanitize(listing.descriptionHtml, {
+            ALLOWED_TAGS: ["p", "br", "strong", "em", "b", "i", "ul", "ol", "li", "a"],
+            ALLOWED_ATTR: ["href", "target", "rel"],
+          })
+        : null;
     } catch {
       clean = null;
     }
