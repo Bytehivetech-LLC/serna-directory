@@ -21,7 +21,15 @@ export async function signAvatarUploadAction(): Promise<
   const path = `${user.id}/${crypto.randomUUID()}.webp`;
   const admin = createAdminClient();
   const { data, error } = await admin.storage.from(AVATARS_BUCKET).createSignedUploadUrl(path);
-  if (error || !data) return { ok: false, error: "Couldn't prepare the upload." };
+  if (error || !data) {
+    console.error("[avatar] sign failed:", error?.message);
+    // The usual cause is the avatars bucket not existing in this project.
+    return {
+      ok: false,
+      error:
+        "Couldn't reach storage. If this persists, the “avatars” bucket may not exist yet — create it in Supabase → Storage.",
+    };
+  }
   return { ok: true, path, token: data.token };
 }
 
@@ -43,6 +51,7 @@ export async function confirmAvatarAction(
   const admin = createAdminClient();
   const kind = await verifyImageObject(admin, AVATARS_BUCKET, [objectPath]);
   if (!kind) {
+    console.error("[avatar] magic-byte check failed for", objectPath);
     return { ok: false, error: "That file isn't a valid image. Nothing was saved." };
   }
 
@@ -62,7 +71,10 @@ export async function confirmAvatarAction(
     .from("profiles")
     .update({ avatar_url: publicUrl })
     .eq("id", user.id);
-  if (error) return { ok: false, error: "Couldn't save your picture." };
+  if (error) {
+    console.error("[avatar] avatar_url update failed:", error.message);
+    return { ok: false, error: "Couldn't save your picture. Please try again." };
+  }
 
   await logAudit({ action: "profile.avatar_set", entityType: "user", entityId: user.id });
   revalidatePath("/dashboard/profile");

@@ -23,6 +23,9 @@ export function AvatarUpload({ initialUrl }: { initialUrl: string | null }) {
     } catch (e) {
       return { ok: false, error: e instanceof Error ? e.message : "Couldn't process that image." };
     }
+    // 1) Couldn't reach storage / bucket missing → signAvatar returns a specific
+    //    message; 2) the PUT itself failing is also a storage problem;
+    //    3) confirmAvatar distinguishes "not a valid image" from "couldn't save".
     const signed = await signAvatarUploadAction();
     if (!signed.ok) return { ok: false, error: signed.error };
 
@@ -30,7 +33,12 @@ export function AvatarUpload({ initialUrl }: { initialUrl: string | null }) {
     const up = await supabase.storage
       .from("avatars")
       .uploadToSignedUrl(signed.path, signed.token, blob, { contentType: "image/webp" });
-    if (up.error) return { ok: false, error: "Upload failed. Please try again." };
+    if (up.error) {
+      return {
+        ok: false,
+        error: `Couldn't reach storage (${up.error.message}). The “avatars” bucket may be missing.`,
+      };
+    }
 
     const res = await confirmAvatarAction(signed.path);
     if (!res.ok) return { ok: false, error: res.error };
